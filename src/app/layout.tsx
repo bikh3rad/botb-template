@@ -1,10 +1,26 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Jost, Roboto, Josefin_Sans, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const jost = Jost({
+  variable: "--font-jost",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+const roboto = Roboto({
+  variable: "--font-roboto",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+const josefin = Josefin_Sans({
+  variable: "--font-josefin",
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -13,8 +29,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Website Clone",
-  description: "Pixel-perfect website clone",
+  metadataBase: new URL("https://www.botb.com"),
+  title: "#1 Online Car Competitions UK | Win A Car Now | Real Winners. Every Day.",
+  description:
+    "We're the leading online car competitions company in the UK. Tickets from just 50p to win a car, cash, tech, holidays and more.",
+  openGraph: {
+    title: "BOTB — Real winners. Every day.",
+    description:
+      "We're the leading online car competitions company in the UK. Tickets from just 50p to win a car, cash, tech, holidays and more.",
+    siteName: "BOTB",
+    images: ["/seo/og-image.png"],
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -25,9 +51,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
+      className={`${jost.variable} ${roboto.variable} ${josefin.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col bg-white text-botb-text">{children}</body>
     </html>
   );
 }

@@ -1,0 +1,627 @@
+[
+  {
+    "heading": "FEATURED COMPETITIONS",
+    "cardCount": 8,
+    "cards": [
+      {
+        "badge": "ENDS SUNDAY",
+        "titleBar": "1",
+        "titleColor": "rgb(232, 118, 0)",
+        "price": "€1,13",
+        "stat": null,
+        "btn": "PLAY NOW",
+        "img": "botb-13732-competition-card-659x201-x-2.webp",
+        "desc": "Play the game 2 Win your dream car 3 DREAM CAR Final Hours to Enter - "
+      },
+      {
+        "badge": "ENDS TONIGHT",
+        "titleBar": "£1.2M HOME IN ZONE 1",
+        "titleColor": "rgb(50, 186, 181)",
+        "price": "£1.2",
+        "stat": "93% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13344-competition-card-342x212.webp",
+        "desc": "Time's Nearly Up! Win This Home in Central London for Just £1"
+      },
+      {
+        "badge": "ENDS TOMORROW",
+        "titleBar": "£500K+ INSTANT WINS",
+        "titleColor": "rgb(86, 35, 115)",
+        "price": "£500",
+        "stat": "27.82k Won",
+        "btn": "ENTER NOW",
+        "img": "botb-13548-botb-13548-competition-card-342x212.webp",
+        "desc": "The clock's ticking! Wimbledon Wonders - instant prizes for just £1.19"
+      },
+      {
+        "badge": "ENDS FRIDAY",
+        "titleBar": "AUDI R8 FOR 21P!",
+        "titleColor": "rgb(174, 31, 37)",
+        "price": "£76",
+        "stat": null,
+        "btn": "ENTER NOW",
+        "img": "botb-13558-competition-card-342x212.webp",
+        "desc": "Bag this German-engineered supercar icon worth £76k!"
+      },
+      {
+        "badge": "ENDS SUNDAY",
+        "titleBar": "£2.5M+ INSTANT WINS",
+        "titleColor": "rgb(86, 35, 115)",
+        "price": "£2.5",
+        "stat": "169.7k Won",
+        "btn": "ENTER NOW",
+        "img": "botb-13551-competition-card-342x212.webp",
+        "desc": "BOTB's summer festival is here, grab entry for just £1.49!"
+      },
+      {
+        "badge": "ENDS IN 11 DAYS",
+        "titleBar": "EVOQUE + MINI FOR 9P!",
+        "titleColor": "rgb(174, 31, 37)",
+        "price": "£52",
+        "stat": null,
+        "btn": "ENTER NOW",
+        "img": "botb-13740-competition-card-342x212.webp",
+        "desc": "Bag a Range Rover and Mini worth £52k!"
+      },
+      {
+        "badge": "ENDS MONDAY",
+        "titleBar": "LIFESTYLE COMPETITION",
+        "titleColor": "rgb(104, 120, 179)",
+        "price": "€0,44",
+        "stat": null,
+        "btn": "ENTER NOW",
+        "img": "botb-13982-competition-card-684x424.webp",
+        "desc": "Open For Entries! Your chance to win cars, watches, tech & more!"
+      },
+      {
+        "badge": "ENDS TONIGHT",
+        "titleBar": "IPHONE 17 & 1,249+ PRIZES!",
+        "titleColor": "rgb(36, 51, 159)",
+        "price": "£500",
+        "stat": null,
+        "btn": "DETAILS",
+        "img": "botb-11196-comp-card_1.webp",
+        "desc": "1,250 prizes up for grabs – including an iPhone 17 & £500! DETAILS ENT"
+      }
+    ]
+  },
+  {
+    "heading": "ENDS TODAY",
+    "cardCount": 9,
+    "cards": [
+      {
+        "badge": "ENDS TONIGHT",
+        "titleBar": "IPHONE 17 & 1,249+ PRIZES!",
+        "titleColor": "rgb(36, 51, 159)",
+        "price": "£500",
+        "stat": null,
+        "btn": "DETAILS",
+        "img": "botb-11196-comp-card_1.webp",
+        "desc": "1,250 prizes up for grabs – including an iPhone 17 & £500! DETAILS ENT"
+      },
+      {
+        "badge": "ENDS TONIGHT",
+        "titleBar": "£1.2M HOME IN ZONE 1",
+        "titleColor": "rgb(50, 186, 181)",
+        "price": "£1.2",
+        "stat": "93% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13344-competition-card-342x212.webp",
+        "desc": "Time's Nearly Up! Win This Home in Central London for Just £1"
+      },
+      {
+        "badge": "ENDS TONIGHT",
+        "titleBar": "1K HOUSE TICKETS!",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,32",
+        "stat": "48% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v1-1000.webp",
+        "desc": "Want to boost you odds to win a house for 25p?"
+      },
+      {
+        "badge": "ENDS TONIGHT",
+        "titleBar": "500 HOUSE TICKETS!",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,62",
+        "stat": "41% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v1-500.webp",
+        "desc": "Low odds to bag 500 house tickets!"
+      },
+      {
+        "badge": "ENDS TONIGHT",
+        "titleBar": "RATTAN DINING SET",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,07",
+        "stat": "47% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13095-comp-card_.webp",
+        "desc": "Transform your garden for 5p!"
+      },
+      {
+        "badge": "ENDS TONIGHT",
+        "titleBar": "MYSTERY CASH PRIZE",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,24",
+        "stat": "51% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-11121-comp-card.webp",
+        "desc": "Unlock Today’s Mystery Cash Prize!"
+      },
+      {
+        "badge": "ENDS TONIGHT",
+        "titleBar": "NINJA AUTOBARISTA PRO",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,07",
+        "stat": "31% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13763-comp-card_.webp",
+        "desc": "Café-quality coffee at home for just 5p!"
+      },
+      {
+        "badge": "ENDS TONIGHT",
+        "titleBar": "1000 HOUSE TICKETS 1P",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,02",
+        "stat": "89% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v2-1000.webp",
+        "desc": "1,000 House Tickets for just 1p!"
+      },
+      {
+        "badge": "ENDS TONIGHT",
+        "titleBar": "500 HOUSE TICKETS 5P",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,07",
+        "stat": "38.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v3-500.webp",
+        "desc": "500 House Tickets for only 5p!"
+      }
+    ]
+  },
+  {
+    "heading": "ENDS TOMORROW",
+    "cardCount": 6,
+    "cards": [
+      {
+        "badge": "ENDS TOMORROW",
+        "titleBar": "IPHONE 17 & 1,249+ PRIZES!",
+        "titleColor": "rgb(36, 51, 159)",
+        "price": "£500",
+        "stat": null,
+        "btn": "DETAILS",
+        "img": "botb-11196-comp-card_1.webp",
+        "desc": "1,250 prizes up for grabs – including an iPhone 17 & £500! DETAILS ENT"
+      },
+      {
+        "badge": "ENDS TOMORROW",
+        "titleBar": "5G GOLD BAR",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,07",
+        "stat": "43% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-9098-competition_card_template-5g-gold-bar.webp",
+        "desc": "Own a 5g gold bar for just 5p!"
+      },
+      {
+        "badge": "ENDS TOMORROW",
+        "titleBar": "£2,250 CASH",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "£2,250",
+        "stat": "49% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-10287-comp-card-2250.webp",
+        "desc": "Just 5p for £2.25K!"
+      },
+      {
+        "badge": "ENDS TOMORROW",
+        "titleBar": "IPHONE 17 PRO MAX",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,37",
+        "stat": "29.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-9275-comp-card-iphone-17-pro-max.webp",
+        "desc": "29p for the best iPhone on the market!"
+      },
+      {
+        "badge": "ENDS TOMORROW",
+        "titleBar": "500 HOUSE TICKETS!",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,62",
+        "stat": "28.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v1-500.webp",
+        "desc": "Low odds to bag 500 house tickets!"
+      },
+      {
+        "badge": "ENDS TOMORROW",
+        "titleBar": "£500K+ INSTANT WINS",
+        "titleColor": "rgb(86, 35, 115)",
+        "price": "£500",
+        "stat": "27.82k Won",
+        "btn": "ENTER NOW",
+        "img": "botb-13548-botb-13548-competition-card-342x212.webp",
+        "desc": "The clock's ticking! Wimbledon Wonders - instant prizes for just £1.19"
+      }
+    ]
+  },
+  {
+    "heading": "INSTANT WINS",
+    "cardCount": 1,
+    "cards": [
+      {
+        "badge": "ENDS TOMORROW",
+        "titleBar": "£500K+ INSTANT WINS",
+        "titleColor": "rgb(86, 35, 115)",
+        "price": "£500",
+        "stat": "27.82k Won",
+        "btn": "ENTER NOW",
+        "img": "botb-13548-botb-13548-competition-card-342x212.webp",
+        "desc": "The clock's ticking! Wimbledon Wonders - instant prizes for just £1.19"
+      }
+    ]
+  },
+  {
+    "heading": "ENDS SOON",
+    "cardCount": 35,
+    "cards": [
+      {
+        "badge": "ENDS THURSDAY",
+        "titleBar": "IPHONE 17 & 1,249+ PRIZES!",
+        "titleColor": "rgb(36, 51, 159)",
+        "price": "£500",
+        "stat": null,
+        "btn": "DETAILS",
+        "img": "botb-11196-comp-card_1.webp",
+        "desc": "1,250 prizes up for grabs – including an iPhone 17 & £500! DETAILS ENT"
+      },
+      {
+        "badge": "ENDS THURSDAY",
+        "titleBar": "SAMSUNG GALAXY BOOK6",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,05",
+        "stat": "10% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13767-competition-card-342x212.webp",
+        "desc": "Redefine productivity with the Galaxy Book6!"
+      },
+      {
+        "badge": "ENDS THURSDAY",
+        "titleBar": "MACBOOK NEO",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,05",
+        "stat": "28.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-11668-comp-card_.webp",
+        "desc": "Win Apple's latest tech for 4p!"
+      },
+      {
+        "badge": "ENDS THURSDAY",
+        "titleBar": "TOSHIBA TV",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,02",
+        "stat": "39.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-10106-comp-card-toshiba.webp",
+        "desc": "Upgrade your TV with the Toshiba 70” Ultra QLED!"
+      },
+      {
+        "badge": "ENDS THURSDAY",
+        "titleBar": "750 HOUSE TICKETS!",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,02",
+        "stat": "24% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v1-750.webp",
+        "desc": "750 entries for our House Competition?"
+      },
+      {
+        "badge": "ENDS THURSDAY",
+        "titleBar": "1K HOUSE TICKETS!",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,32",
+        "stat": "9.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v1-1000.webp",
+        "desc": "Want to boost you odds to win a house for 25p?"
+      },
+      {
+        "badge": "ENDS FRIDAY",
+        "titleBar": "IPHONE 17 & 1,249+ PRIZES!",
+        "titleColor": "rgb(36, 51, 159)",
+        "price": "£500",
+        "stat": null,
+        "btn": "DETAILS",
+        "img": "botb-11196-comp-card_1.webp",
+        "desc": "1,250 prizes up for grabs – including an iPhone 17 & £500! DETAILS ENT"
+      },
+      {
+        "badge": "ENDS FRIDAY",
+        "titleBar": "AUDI R8 FOR 21P!",
+        "titleColor": "rgb(174, 31, 37)",
+        "price": "£76",
+        "stat": null,
+        "btn": "ENTER NOW",
+        "img": "botb-13558-competition-card-342x212.webp",
+        "desc": "Bag this German-engineered supercar icon worth £76k!"
+      },
+      {
+        "badge": "ENDS FRIDAY",
+        "titleBar": "NINTENDO BUNDLE",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,37",
+        "stat": "19.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-8941-competition_card_template-nintendo.webp",
+        "desc": "Win this Nintendo Switch 2 & Mario Kart Bundle!"
+      },
+      {
+        "badge": "ENDS FRIDAY",
+        "titleBar": "MYSTERY LIFESTYLE",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,25",
+        "stat": "29.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-11402-comp-card.webp",
+        "desc": "A mystery lifestyle prize could be yours!"
+      },
+      {
+        "badge": "ENDS FRIDAY",
+        "titleBar": "£1,250 CASH",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "£1,250",
+        "stat": "35.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-9211-comp-card-money.webp",
+        "desc": "1p for a bundle of tax-free cash!"
+      },
+      {
+        "badge": "ENDS FRIDAY",
+        "titleBar": "500 HOUSE TICKETS FOR 1P",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,02",
+        "stat": "21.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v2-500.webp",
+        "desc": "Win 500 Dream House Competition tickets for 1p!"
+      },
+      {
+        "badge": "ENDS FRIDAY",
+        "titleBar": "750 HOUSE TICKETS FOR 39P",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,49",
+        "stat": "3.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v2-750.webp",
+        "desc": "Bag 750 Dream House Competition tickets for 39p!"
+      },
+      {
+        "badge": "ENDS SATURDAY",
+        "titleBar": "IPHONE 17 & 1,249+ PRIZES!",
+        "titleColor": "rgb(36, 51, 159)",
+        "price": "£500",
+        "stat": null,
+        "btn": "DETAILS",
+        "img": "botb-11196-comp-card_1.webp",
+        "desc": "1,250 prizes up for grabs – including an iPhone 17 & £500! DETAILS ENT"
+      },
+      {
+        "badge": "ENDS SATURDAY",
+        "titleBar": "£5,000",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "£5,000",
+        "stat": "15.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-8941-competition_card_template-1-000-cash.webp",
+        "desc": "Just 3p could land you"
+      },
+      {
+        "badge": "ENDS SATURDAY",
+        "titleBar": "£1K AMAZON VOUCHER",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "£1",
+        "stat": "8% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-12931-comp-card.webp",
+        "desc": "For 10p this £1,000 Amazon Voucher could be yours!"
+      },
+      {
+        "badge": "ENDS SATURDAY",
+        "titleBar": "PUREMATE AC",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,07",
+        "stat": "19% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13932-comp-card_.webp",
+        "desc": "Beat the heat with the PureMate AC for 5p!"
+      },
+      {
+        "badge": "ENDS SATURDAY",
+        "titleBar": "1,000 HOUSE TICKETS FOR 1P!",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,02",
+        "stat": "9.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v2-1000.webp",
+        "desc": "1p to win your dream home?!"
+      },
+      {
+        "badge": "ENDS SATURDAY",
+        "titleBar": "300 HOUSE TICKETS FOR 10P!",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,13",
+        "stat": "10.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v3-300.webp",
+        "desc": "300 tickets for 10p?!"
+      },
+      {
+        "badge": "ENDS SUNDAY",
+        "titleBar": "IPHONE 17 & 1,249+ PRIZES!",
+        "titleColor": "rgb(36, 51, 159)",
+        "price": "£500",
+        "stat": null,
+        "btn": "DETAILS",
+        "img": "botb-11196-comp-card_1.webp",
+        "desc": "1,250 prizes up for grabs – including an iPhone 17 & £500! DETAILS ENT"
+      },
+      {
+        "badge": "ENDS SUNDAY",
+        "titleBar": "ULTIMATE BOTB PASS",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,13",
+        "stat": "14% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-11364-comp-card_.webp",
+        "desc": "Better your odds with a year of our Ultimate BOTB Pass!"
+      },
+      {
+        "badge": "ENDS SUNDAY",
+        "titleBar": "MYSTERY TECH PRIZE",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,19",
+        "stat": "7% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-10873-comp-card.webp",
+        "desc": "A mystery tech prize could be yours!"
+      },
+      {
+        "badge": "ENDS SUNDAY",
+        "titleBar": "£1,750 CASH",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "£1,750",
+        "stat": "10.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-10168-comp-card_.webp",
+        "desc": "Enter now for your chance to win £1,750 Cash!"
+      },
+      {
+        "badge": "ENDS SUNDAY",
+        "titleBar": "300 HOUSE TICKETS!",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,02",
+        "stat": "11% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v1-300.webp",
+        "desc": "1p for 300 tickets?!"
+      },
+      {
+        "badge": "ENDS SUNDAY",
+        "titleBar": "750 HOUSE TICKETS FOR 15P",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,19",
+        "stat": "2% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v3-750.webp",
+        "desc": "750 Dream House Tickets for 15p!"
+      },
+      {
+        "badge": "ENDS SUNDAY",
+        "titleBar": "DREAM CAR",
+        "titleColor": "rgb(255, 130, 0)",
+        "price": "€1,13",
+        "stat": null,
+        "btn": "PLAY NOW",
+        "img": "botb-13732-competition-card-342x212.webp",
+        "desc": "Final Hours to Enter - Win a car PLUS gold!"
+      },
+      {
+        "badge": "ENDS SUNDAY",
+        "titleBar": "£2.5M+ INSTANT WINS",
+        "titleColor": "rgb(86, 35, 115)",
+        "price": "£2.5",
+        "stat": "169.7k Won",
+        "btn": "ENTER NOW",
+        "img": "botb-13551-competition-card-342x212.webp",
+        "desc": "BOTB's summer festival is here, grab entry for just £1.49!"
+      },
+      {
+        "badge": "ENDS MONDAY",
+        "titleBar": "IPHONE 17 & 1,249+ PRIZES!",
+        "titleColor": "rgb(36, 51, 159)",
+        "price": "£500",
+        "stat": null,
+        "btn": "DETAILS",
+        "img": "botb-11196-comp-card_1.webp",
+        "desc": "1,250 prizes up for grabs – including an iPhone 17 & £500! DETAILS ENT"
+      },
+      {
+        "badge": "ENDS MONDAY",
+        "titleBar": "10G GOLD BAR",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,02",
+        "stat": "2% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-11858-competition-card-684x424-copy.webp",
+        "desc": "Luxury Gold, Crazy Price – Just 1p!"
+      },
+      {
+        "badge": "ENDS MONDAY",
+        "titleBar": "SHARK FAN BUNDLE",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,04",
+        "stat": "0.5% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13936-comp-card_.webp",
+        "desc": "Stay cool this summer – Shark Fan Bundle for 3p"
+      },
+      {
+        "badge": "ENDS MONDAY",
+        "titleBar": "£800 CASH",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "£800",
+        "stat": "3% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-10415-comp-card.webp",
+        "desc": "Bank balance looking low? Win £800 for 1p"
+      },
+      {
+        "badge": "ENDS MONDAY",
+        "titleBar": "1P FOR 500 HOUSE TICKETS",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,02",
+        "stat": "1% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v2-500.webp",
+        "desc": "Only 1p to win 500 House Tickets!"
+      },
+      {
+        "badge": "ENDS MONDAY",
+        "titleBar": "20P FOR 1000 HOUSE TICKETS",
+        "titleColor": "rgb(18, 137, 16)",
+        "price": "€0,25",
+        "stat": "1% sold",
+        "btn": "ENTER NOW",
+        "img": "botb-13831-competition-card-342x212-v3-1000.webp",
+        "desc": "Only 20p to win 1000 House Tickets!"
+      },
+      {
+        "badge": "ENDS MONDAY",
+        "titleBar": "LIFESTYLE COMPETITION",
+        "titleColor": "rgb(104, 120, 179)",
+        "price": "€0,44",
+        "stat": null,
+        "btn": "ENTER NOW",
+        "img": "botb-13982-competition-card-684x424.webp",
+        "desc": "Open For Entries! Your chance to win cars, watches, tech & more!"
+      },
+      {
+        "badge": "ENDS IN 11 DAYS",
+        "titleBar": "EVOQUE + MINI FOR 9P!",
+        "titleColor": "rgb(174, 31, 37)",
+        "price": "£52",
+        "stat": null,
+        "btn": "ENTER NOW",
+        "img": "botb-13740-competition-card-342x212.webp",
+        "desc": "Bag a Range Rover and Mini worth £52k!"
+      }
+    ]
+  },
+  {
+    "heading": "FREE COMPS",
+    "cardCount": 0,
+    "cards": []
+  }
+]

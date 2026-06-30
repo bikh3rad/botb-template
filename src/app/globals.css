@@ -7,9 +7,27 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-roboto), "Roboto", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-heading: var(--font-jost), "Jost", ui-sans-serif, sans-serif;
+  --font-jost: var(--font-jost), "Jost", sans-serif;
+  --font-roboto: var(--font-roboto), "Roboto", sans-serif;
+  --font-josefin: var(--font-josefin), "Josefin Sans", sans-serif;
+
+  /* BOTB brand colors (usable as bg-botb-orange, text-botb-muted, etc.) */
+  --color-botb-orange: var(--botb-orange);
+  --color-botb-orange-hover: var(--botb-orange-hover);
+  --color-botb-gray: var(--botb-gray);
+  --color-botb-card-border: var(--botb-card-border);
+  --color-botb-badge: var(--botb-badge);
+  --color-botb-text: var(--botb-text);
+  --color-botb-muted: var(--botb-muted);
+  --color-botb-secondary: var(--botb-secondary);
+  --color-botb-teal: var(--botb-teal);
+  --color-botb-purple: var(--botb-purple);
+  --color-botb-red: var(--botb-red);
+  --color-botb-green: var(--botb-green);
+  --color-botb-blue: var(--botb-blue);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,24 +67,39 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #ffffff;
+  --foreground: #333333;
+  --card: #ffffff;
+  --card-foreground: #333333;
+  --popover: #ffffff;
+  --popover-foreground: #333333;
+  --primary: #ff8200;
+  --primary-foreground: #ffffff;
+  --secondary: #efefef;
+  --secondary-foreground: #333333;
+  --muted: #efefef;
+  --muted-foreground: #898994;
+  --accent: #fff3e6;
+  --accent-foreground: #333333;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: #e5e7eb;
+  --input: #c3c3c3;
+  --ring: #ff8200;
+
+  /* BOTB brand palette */
+  --botb-orange: #ff8200;
+  --botb-orange-hover: #e67500;
+  --botb-gray: #efefef;
+  --botb-card-border: #c3c3c3;
+  --botb-badge: #e4002b;
+  --botb-text: #333333;
+  --botb-muted: #898994;
+  --botb-secondary: #696971;
+  --botb-teal: #32bab5;
+  --botb-purple: #562373;
+  --botb-red: #ae1f25;
+  --botb-green: #3fa63f;
+  --botb-blue: #3772ff;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -123,8 +156,51 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-roboto), "Roboto", ui-sans-serif, system-ui, sans-serif;
   }
   html {
     @apply font-sans;
   }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-jost), "Jost", ui-sans-serif, sans-serif;
+  }
 }
+
+/* ---- BOTB animations & utilities ---- */
+@keyframes botb-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: botb-marquee var(--marquee-duration, 40s) linear infinite;
+}
+.marquee-pause:hover .animate-marquee {
+  animation-play-state: paused;
+}
+
+@keyframes botb-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-slide-fade {
+  animation: botb-fade 0.6s ease-in-out;
+}
+
+/* Hide scrollbar for horizontal scroll rows (mobile pills, winners) */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Card "ENDS …" badge — pink→orange gradient */
+.botb-badge-gradient {
+  background-image: linear-gradient(90deg, #ee0979, #ff6a00);
+}
+
+/* Bottom promo ribbon gradient (orange → red) */
+.botb-ribbon-gradient {
+  background-image: linear-gradient(90deg, #ff8a00, #e64a19);
+}
+
+/* Heading font helper */
+.font-jost { font-family: var(--font-jost), "Jost", sans-serif; }
+.font-roboto { font-family: var(--font-roboto), "Roboto", sans-serif; }
+.font-josefin { font-family: var(--font-josefin), "Josefin Sans", sans-serif; }
