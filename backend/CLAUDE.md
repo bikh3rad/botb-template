@@ -72,4 +72,4 @@ The Dockerfile bakes `config.example.yaml` in as `/app/config.yaml`.
 
 ## Local infra
 
-`docker-compose.yml` aggregates includes from `infra/compose/` (monitoring stack, Redis, Postgres). `Tiltfile` references a Helm chart at `./charts/live-epg` that is **not** present in this repo — Tilt usage requires that chart to be added separately.
+`docker-compose.yml` runs the **whole stack** in one command: it includes Postgres and MinIO from `infra/compose/datasource/`, applies `migrations/` via a one-shot `migrate/migrate` container, creates the MinIO bucket via a one-shot `mc` container, and starts all five services behind the gateway (the only published port, `8080`). Each service image is built from the shared `Dockerfile` selected by the `SERVICE` build-arg. See `README.md` → "Running the full stack locally". The heavier monitoring/Redis includes are intentionally left out of this file. `Tiltfile` references a Helm chart at `./charts/live-epg` that is **not** present in this repo.

@@ -203,23 +203,53 @@ missing/invalid/expired token on an admin path → `401`.
 
 ### Running the full stack locally
 
+One command brings up everything — Postgres, MinIO, migrations, the media
+bucket, and all five services behind the gateway:
+
 ```sh
-docker compose up -d postgresql minio          # infra
-cp config.example.yaml config.yaml
-# apply migrations/ against Postgres (e.g. with golang-migrate)
-
-# each domain service on its own port (matches gateway.upstreams in config)
-APP_SERVER_HTTP_ADDR=:8081 go run ./cmd/competition --config ./config.yaml &
-APP_SERVER_HTTP_ADDR=:8082 go run ./cmd/user        --config ./config.yaml &
-APP_SERVER_HTTP_ADDR=:8083 go run ./cmd/draw        --config ./config.yaml &
-APP_SERVER_HTTP_ADDR=:8084 go run ./cmd/media       --config ./config.yaml &
-
-# gateway on the single public port
-APP_SERVER_HTTP_ADDR=:8080 go run ./cmd/gateway --config ./config.yaml
+cp .env.example .env
+docker compose up -d --build
 ```
 
-All public traffic then goes through `http://localhost:8080/apis/...`. Service
-binaries run via `go run` (not in docker-compose, which stays infra-only).
+- **Only the gateway is published** — `http://localhost:8080`. All public
+  traffic goes through `http://localhost:8080/apis/<service>/v1/...`. The four
+  domain services (competition, user, draw, media) listen on `:8080` **inside**
+  the compose network only and are reachable by service name.
+- **Migrations** (`migrations/000001–000005`) are applied by a one-shot
+  `migrate/migrate` container that runs after Postgres is healthy and before the
+  services start (they wait on `condition: service_completed_successfully`).
+- **The `botb-media` bucket** is created on first run by a one-shot `mc`
+  container, so media uploads work immediately.
+- The shared `jwt.secret` (`APP_JWT_SECRET`) is defined once in `.env` and
+  injected into the gateway and all four services (two-layer admin JWT auth).
+
+Smoke-test through the gateway:
+
+```sh
+curl -i http://localhost:8080/apis/competition/v1/competitions                 # public → 200
+curl -i -X POST http://localhost:8080/apis/competition/v1/admin/competitions   # no token → 401
+```
+
+Tear down (add `-v` to also drop the Postgres/MinIO volumes):
+
+```sh
+docker compose down
+```
+
+**Swagger.** Each service serves Swagger UI at `/swagger/` (spec at
+`/docs/swagger/swagger.json`) on its internal `:8080`. Because only the gateway
+is published, view a service's docs by adding a temporary port mapping (e.g.
+`ports: ["8091:8080"]` under `competition:` → open `http://localhost:8091/swagger/`),
+or fetch the spec through the compose network:
+
+```sh
+docker compose exec gateway wget -qO- http://competition:8080/docs/swagger/swagger.json
+```
+
+> **Images build from vendored deps** (`go mod vendor`) so the build needs no
+> access to the Go module proxy. Run `go mod vendor` after changing dependencies.
+> Each service image is selected by the `SERVICE` build-arg; bases are
+> `golang:1.25-alpine` (build) and `alpine:3.20` (runtime).
 
 ### New config / env vars
 

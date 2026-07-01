@@ -30,3 +30,8 @@ go.work
 config.yaml
 
 __debug_*
+# Vendored Go deps — built locally for offline/hermetic docker builds, not committed
+/vendor/
+
+# Local compose env
+.env
