@@ -40,7 +40,7 @@ devtools:
 
 swagger:
 	swag fmt
-	swag i  -d internal/service,internal/media,internal/competition,internal/user -g server.go  -pd
+	swag i  -d internal/service,internal/media,internal/competition,internal/user,internal/draw -g server.go  -pd
 
 
 

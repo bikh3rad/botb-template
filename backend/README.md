@@ -106,7 +106,7 @@ group guarded by JWT at the gateway.
 | Media (uploads, object storage) | `cmd/media` | ✅ implemented |
 | Competition (public GET + admin CRUD) | `cmd/competition` | ✅ implemented |
 | User + Tickets | `cmd/user` | ✅ implemented |
-| Draw / Winners | `cmd/draw` | ⏳ planned |
+| Draw / Winners | `cmd/draw` | ✅ implemented |
 | Gateway (single public entrypoint, reverse-proxy + JWT) | `cmd/gateway` | ⏳ planned |
 
 ### Media service (`cmd/media`)
@@ -160,6 +160,26 @@ user's `tickets_owned` + `total_spent_pence`. It does **not** write
 `competitions.tickets_sold` (owned by the competition service — a real system
 would sync that via a JetStream event). Registration (a public `POST`) is the
 one deliberate exception to "writes are admin-only".
+
+### Draw / Winners service (`cmd/draw`)
+
+Owns the `draws` table. Admin creates + runs draws; the public homepage reads
+completed results.
+
+| Method & Path | Auth | Description |
+|---|---|---|
+| `GET /apis/draw/v1/admin/draws` | admin | Searchable, paginated draw list (`?q=&limit=&offset=`) |
+| `GET /apis/draw/v1/admin/draws/{id}` | admin | One draw (incl. pending) |
+| `POST /apis/draw/v1/admin/draws` | admin | Create a pending draw for a competition |
+| `POST /apis/draw/v1/admin/draws/{id}/run` | admin | Run the draw — pick a winner |
+| `GET /apis/draw/v1/draws/{id}` | public | Read a completed result (pending → 404) |
+
+Running a draw is a single transaction: it guards that the draw is still
+`pending` (inside the tx, with a conditional `WHERE ... AND status = 'pending'`
+UPDATE so concurrent runs can't both win), reads the competition's tickets from
+the shared DB, and picks a uniformly-random winner with **crypto/rand** (not
+math/rand). Like the ticket-purchase flow it does not mutate competition-owned
+state (a JetStream event would sync competition status in a real system).
 
 Run it locally:
 

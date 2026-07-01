@@ -8,6 +8,21 @@ definitions:
       count:
         type: integer
     type: object
+  application_internal_draw_dto.DrawListResp:
+    properties:
+      count:
+        type: integer
+      draws:
+        items:
+          $ref: '#/definitions/dto.DrawResp'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
   application_internal_media_dto.MediaResp:
     properties:
       bucket:
@@ -96,6 +111,13 @@ definitions:
       updated_at:
         type: string
     type: object
+  dto.CreateDrawReq:
+    properties:
+      competition_id:
+        type: string
+      prize:
+        type: string
+    type: object
   dto.CreatePlaceholderReq:
     properties:
       name:
@@ -104,6 +126,27 @@ definitions:
         type: string
     required:
     - name
+    type: object
+  dto.DrawResp:
+    properties:
+      competition_id:
+        type: string
+      created_at:
+        type: string
+      drawn_at:
+        type: string
+      id:
+        type: string
+      prize:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      winner_ticket_id:
+        type: string
+      winner_user_id:
+        type: string
     type: object
   dto.ErrorResponse:
     properties:
@@ -439,6 +482,168 @@ paths:
       summary: Get a competition
       tags:
       - Competitions
+  /apis/draw/v1/admin/draws:
+    get:
+      description: 'Admin: paginated, searchable draw list (by prize).'
+      parameters:
+      - description: Search prize
+        in: query
+        name: q
+        type: string
+      - description: Page size (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/application_internal_draw_dto.DrawListResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List draws
+      tags:
+      - Draws (Admin)
+    post:
+      consumes:
+      - application/json
+      description: 'Admin: create a pending draw for a competition.'
+      parameters:
+      - description: Draw
+        in: body
+        name: draw
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateDrawReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.DrawResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Create a draw
+      tags:
+      - Draws (Admin)
+  /apis/draw/v1/admin/draws/{id}:
+    get:
+      description: 'Admin: fetch a draw by ID.'
+      parameters:
+      - description: Draw UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.DrawResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get a draw
+      tags:
+      - Draws (Admin)
+  /apis/draw/v1/admin/draws/{id}/run:
+    post:
+      description: 'Admin: run a pending draw — selects a winning ticket and records
+        the winner. Rejects an already-run draw.'
+      parameters:
+      - description: Draw UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.DrawResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Already Drawn
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "422":
+          description: No Tickets
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Run a draw
+      tags:
+      - Draws (Admin)
+  /apis/draw/v1/draws/{id}:
+    get:
+      description: 'Public: read a completed (drawn/void) draw result. Pending draws
+        return 404.'
+      parameters:
+      - description: Draw UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.DrawResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get a draw result (public)
+      tags:
+      - Draws
   /apis/media/v1/media:
     get:
       description: List every media object attached to an owner (owner_type + owner_id

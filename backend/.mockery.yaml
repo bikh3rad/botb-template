@@ -26,3 +26,8 @@ packages:
       dir: ./internal/user/mocks
       all: true
       recursive: true
+  application/internal/draw/biz:
+    config:
+      dir: ./internal/draw/mocks
+      all: true
+      recursive: true
