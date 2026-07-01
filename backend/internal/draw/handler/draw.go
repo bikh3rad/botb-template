@@ -4,6 +4,7 @@ import (
 	"application/internal/draw/biz"
 	"application/internal/draw/dto"
 	"application/internal/service"
+	"application/pkg/middlewares"
 	"context"
 	"encoding/json"
 	"errors"
@@ -21,28 +22,36 @@ type draw struct {
 	tracer trace.Tracer
 	mux    *http.ServeMux
 	uc     biz.UsecaseDraw
+	auth   *middlewares.JWTAuth
 }
 
 var _ service.Handler = (*draw)(nil)
 
 // NewDraw creates the draw HTTP handler.
-func NewDraw(logger *slog.Logger, mux *http.ServeMux, uc biz.UsecaseDraw) *draw {
+func NewDraw(logger *slog.Logger, mux *http.ServeMux, uc biz.UsecaseDraw, auth *middlewares.JWTAuth) *draw {
 	return &draw{
 		logger: logger.With("layer", "DrawHandler"),
 		tracer: otel.Tracer("DrawHandler"),
 		mux:    mux,
 		uc:     uc,
+		auth:   auth,
 	}
 }
 
-// RegisterHandler mounts admin management + the public draw-result read. Admin
-// routes sit under /admin/ so the gateway can guard that group with JWT.
+// RegisterHandler mounts admin management + the public draw-result read. The
+// admin group is JWT-guarded here too (defense in depth) — the gateway also
+// guards it, but a service reached directly on its own port must not be
+// unprotected.
 func (h *draw) RegisterHandler(_ context.Context) error {
+	admin := func(fn http.HandlerFunc) http.HandlerFunc {
+		return middlewares.MultipleMiddleware(fn, h.auth.Middleware)
+	}
+
 	// Admin.
-	h.mux.HandleFunc("GET /apis/draw/v1/admin/draws", h.list)
-	h.mux.HandleFunc("GET /apis/draw/v1/admin/draws/{id}", h.get)
-	h.mux.HandleFunc("POST /apis/draw/v1/admin/draws", h.create)
-	h.mux.HandleFunc("POST /apis/draw/v1/admin/draws/{id}/run", h.run)
+	h.mux.HandleFunc("GET /apis/draw/v1/admin/draws", admin(h.list))
+	h.mux.HandleFunc("GET /apis/draw/v1/admin/draws/{id}", admin(h.get))
+	h.mux.HandleFunc("POST /apis/draw/v1/admin/draws", admin(h.create))
+	h.mux.HandleFunc("POST /apis/draw/v1/admin/draws/{id}/run", admin(h.run))
 	// Public.
 	h.mux.HandleFunc("GET /apis/draw/v1/draws/{id}", h.getPublic)
 

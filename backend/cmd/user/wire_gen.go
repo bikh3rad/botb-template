@@ -15,6 +15,7 @@ import (
 	biz2 "application/internal/user/biz"
 	handler2 "application/internal/user/handler"
 	"application/internal/user/repo"
+	"application/pkg/middlewares"
 	"context"
 	"net/http"
 )
@@ -69,10 +70,15 @@ func wireApp(ctx context.Context) (app.Application, error) {
 	}
 	user := repo.NewUser(logger, postgresDB)
 	bizUser := biz2.NewUser(logger, user)
-	handlerUser := handler2.NewUser(logger, serveMux, bizUser)
+	jwtSecret, err := middlewares.NewJWTSecret(kConfig)
+	if err != nil {
+		return nil, err
+	}
+	jwtAuth := middlewares.NewJWTAuth(jwtSecret)
+	handlerUser := handler2.NewUser(logger, serveMux, bizUser, jwtAuth)
 	ticket := repo.NewTicket(logger, postgresDB)
 	bizTicket := biz2.NewTicket(logger, ticket)
-	handlerTicket := handler2.NewTicket(logger, serveMux, bizTicket)
+	handlerTicket := handler2.NewTicket(logger, serveMux, bizTicket, jwtAuth)
 	v := handler2.NewServiceList(healthzHandler, handlerUser, handlerTicket)
 	httpHandler, err := service.NewHTTPHandler(ctx, logger, serveMux, v...)
 	if err != nil {

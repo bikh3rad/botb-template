@@ -14,6 +14,7 @@ import (
 	"application/internal/datasource"
 	"application/internal/service"
 	svchandler "application/internal/service/handler"
+	"application/pkg/middlewares"
 	"context"
 
 	"github.com/google/wire"
@@ -35,6 +36,9 @@ func wireApp(
 		// Shared healthz endpoints.
 		flatbiz.HealthzProviderSet,
 		svchandler.NewMuxHealthzHandler,
+
+		// Shared JWT auth (admin route guard — defense in depth).
+		middlewares.JWTProviderSet,
 
 		// Competition domain.
 		compbiz.ProviderSet,

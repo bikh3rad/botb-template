@@ -18,6 +18,10 @@ Top MCP Servers:
 
 ### Codebases
 - [ ] go-template — https://github.com/mequq/go-template
+- [x] BOTB backend — this repo, built on go-template. Five services
+  (`cmd/{gateway,competition,user,draw,media}`) in one module; single public
+  entrypoint is the gateway. See `README.md` → "BOTB backend (monorepo)" for the
+  route map, the two-layer JWT admin auth, and how to run the full stack.
 
 ### MCP Servers to Activate
 _None used by the team yet — skip this section for now._

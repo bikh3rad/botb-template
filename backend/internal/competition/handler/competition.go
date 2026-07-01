@@ -5,6 +5,7 @@ import (
 	"application/internal/competition/dto"
 	"application/internal/competition/entity"
 	"application/internal/service"
+	"application/pkg/middlewares"
 	"context"
 	"encoding/json"
 	"errors"
@@ -21,30 +22,42 @@ type competition struct {
 	tracer trace.Tracer
 	mux    *http.ServeMux
 	uc     biz.UsecaseCompetition
+	auth   *middlewares.JWTAuth
 }
 
 var _ service.Handler = (*competition)(nil)
 
 // NewCompetition creates the competition HTTP handler.
-func NewCompetition(logger *slog.Logger, mux *http.ServeMux, uc biz.UsecaseCompetition) *competition {
+func NewCompetition(
+	logger *slog.Logger,
+	mux *http.ServeMux,
+	uc biz.UsecaseCompetition,
+	auth *middlewares.JWTAuth,
+) *competition {
 	return &competition{
 		logger: logger.With("layer", "CompetitionHandler"),
 		tracer: otel.Tracer("CompetitionHandler"),
 		mux:    mux,
 		uc:     uc,
+		auth:   auth,
 	}
 }
 
-// RegisterHandler mounts public reads and admin mutations. Admin routes sit
-// under /admin/ so the gateway can guard that group with JWT.
+// RegisterHandler mounts public reads and admin mutations. The admin group is
+// JWT-guarded here too (defense in depth) — the gateway also guards it, but a
+// service reached directly on its own port must not be unprotected.
 func (h *competition) RegisterHandler(_ context.Context) error {
+	admin := func(fn http.HandlerFunc) http.HandlerFunc {
+		return middlewares.MultipleMiddleware(fn, h.auth.Middleware)
+	}
+
 	// Public.
 	h.mux.HandleFunc("GET /apis/competition/v1/competitions", h.list)
 	h.mux.HandleFunc("GET /apis/competition/v1/competitions/{id}", h.get)
 	// Admin.
-	h.mux.HandleFunc("POST /apis/competition/v1/admin/competitions", h.create)
-	h.mux.HandleFunc("PUT /apis/competition/v1/admin/competitions/{id}", h.update)
-	h.mux.HandleFunc("DELETE /apis/competition/v1/admin/competitions/{id}", h.delete)
+	h.mux.HandleFunc("POST /apis/competition/v1/admin/competitions", admin(h.create))
+	h.mux.HandleFunc("PUT /apis/competition/v1/admin/competitions/{id}", admin(h.update))
+	h.mux.HandleFunc("DELETE /apis/competition/v1/admin/competitions/{id}", admin(h.delete))
 
 	return nil
 }

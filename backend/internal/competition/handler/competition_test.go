@@ -6,6 +6,7 @@ import (
 	"application/internal/competition/entity"
 	comphandler "application/internal/competition/handler"
 	"application/internal/competition/mocks"
+	"application/pkg/middlewares"
 	"context"
 	"encoding/json"
 	"io"
@@ -14,11 +15,26 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+const testSecret = "test-secret"
+
+// validToken signs an admin bearer token with the test secret.
+func validToken() string {
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": "admin",
+		"exp": time.Now().Add(time.Hour).Unix(),
+	})
+	s, _ := tok.SignedString([]byte(testSecret))
+
+	return s
+}
 
 func newTestHandler(t *testing.T) (*http.ServeMux, *mocks.MockUsecaseCompetition) {
 	t.Helper()
@@ -27,20 +43,39 @@ func newTestHandler(t *testing.T) (*http.ServeMux, *mocks.MockUsecaseCompetition
 	mux := http.NewServeMux()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	h := comphandler.NewCompetition(logger, mux, uc)
+	auth := middlewares.NewJWTAuth(middlewares.JWTSecret(testSecret))
+	h := comphandler.NewCompetition(logger, mux, uc, auth)
 	require.NoError(t, h.RegisterHandler(context.Background()))
 
 	return mux, uc
 }
 
+// doJSON issues a request carrying a valid admin token (public routes ignore it).
 func doJSON(mux *http.ServeMux, method, target, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequestWithContext(context.Background(), method, target, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+validToken())
 
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
 	return rec
+}
+
+// TestAdmin_RequiresToken proves the service's own admin group rejects an
+// unauthenticated call (defense in depth is actually wired, not just at the gateway).
+func TestAdmin_RequiresToken(t *testing.T) {
+	mux, _ := newTestHandler(t)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost,
+		"/apis/competition/v1/admin/competitions", strings.NewReader(`{"title":"A"}`))
+	req.Header.Set("Content-Type", "application/json")
+	// no Authorization header
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 func TestList_OK(t *testing.T) {

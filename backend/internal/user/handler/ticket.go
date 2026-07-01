@@ -4,6 +4,7 @@ import (
 	"application/internal/service"
 	"application/internal/user/biz"
 	"application/internal/user/dto"
+	"application/pkg/middlewares"
 	"context"
 	"encoding/json"
 	"errors"
@@ -20,24 +21,30 @@ type ticket struct {
 	tracer trace.Tracer
 	mux    *http.ServeMux
 	uc     biz.UsecaseTicket
+	auth   *middlewares.JWTAuth
 }
 
 var _ service.Handler = (*ticket)(nil)
 
 // NewTicket creates the ticket HTTP handler.
-func NewTicket(logger *slog.Logger, mux *http.ServeMux, uc biz.UsecaseTicket) *ticket {
+func NewTicket(logger *slog.Logger, mux *http.ServeMux, uc biz.UsecaseTicket, auth *middlewares.JWTAuth) *ticket {
 	return &ticket{
 		logger: logger.With("layer", "TicketHandler"),
 		tracer: otel.Tracer("TicketHandler"),
 		mux:    mux,
 		uc:     uc,
+		auth:   auth,
 	}
 }
 
-// RegisterHandler mounts ticket purchase (public) and per-user listing (admin).
+// RegisterHandler mounts ticket purchase (public) and per-user listing (admin,
+// JWT-guarded here as well as at the gateway — defense in depth).
 func (h *ticket) RegisterHandler(_ context.Context) error {
 	h.mux.HandleFunc("POST /apis/user/v1/tickets", h.purchase)
-	h.mux.HandleFunc("GET /apis/user/v1/admin/users/{id}/tickets", h.listByUser)
+	h.mux.HandleFunc(
+		"GET /apis/user/v1/admin/users/{id}/tickets",
+		middlewares.MultipleMiddleware(h.listByUser, h.auth.Middleware),
+	)
 
 	return nil
 }

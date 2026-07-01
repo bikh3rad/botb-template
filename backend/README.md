@@ -107,7 +107,7 @@ group guarded by JWT at the gateway.
 | Competition (public GET + admin CRUD) | `cmd/competition` | ✅ implemented |
 | User + Tickets | `cmd/user` | ✅ implemented |
 | Draw / Winners | `cmd/draw` | ✅ implemented |
-| Gateway (single public entrypoint, reverse-proxy + JWT) | `cmd/gateway` | ⏳ planned |
+| Gateway (single public entrypoint, reverse-proxy + JWT) | `cmd/gateway` | ✅ implemented |
 
 ### Media service (`cmd/media`)
 
@@ -181,18 +181,51 @@ the shared DB, and picks a uniformly-random winner with **crypto/rand** (not
 math/rand). Like the ticket-purchase flow it does not mutate competition-owned
 state (a JetStream event would sync competition status in a real system).
 
-Run it locally:
+### Gateway service (`cmd/gateway`)
+
+The single public entrypoint. It holds no state — it reverse-proxies (stdlib
+`httputil.NewSingleHostReverseProxy`) by the `<servicename>` path segment of
+`/apis/<servicename>/...` to that service's upstream base URL (from
+`gateway.upstreams.*`, `APP_`-overridable). Unknown service → `404`. Trace
+context is propagated to upstreams via an otel-instrumented transport.
+
+**Two-layer (defense-in-depth) admin auth.** A shared HS256 bearer-token
+middleware (`pkg/middlewares/jwtauth.go`) guards any path matching
+`/apis/<svc>/v1/admin/...`:
+
+1. at the **gateway**, before proxying, and
+2. **inside each service** (its own admin route group), so a service reached
+   directly on its internal port is never unprotected.
+
+Both read the **same** secret from `jwt.secret` (one definition, shared infra
+config). Public reads and the public POSTs (register, purchase) need no token;
+missing/invalid/expired token on an admin path → `401`.
+
+### Running the full stack locally
 
 ```sh
-docker compose up -d postgresql minio   # Postgres + MinIO
+docker compose up -d postgresql minio          # infra
+cp config.example.yaml config.yaml
 # apply migrations/ against Postgres (e.g. with golang-migrate)
-go run ./cmd/media --config ./config.yaml
+
+# each domain service on its own port (matches gateway.upstreams in config)
+APP_SERVER_HTTP_ADDR=:8081 go run ./cmd/competition --config ./config.yaml &
+APP_SERVER_HTTP_ADDR=:8082 go run ./cmd/user        --config ./config.yaml &
+APP_SERVER_HTTP_ADDR=:8083 go run ./cmd/draw        --config ./config.yaml &
+APP_SERVER_HTTP_ADDR=:8084 go run ./cmd/media       --config ./config.yaml &
+
+# gateway on the single public port
+APP_SERVER_HTTP_ADDR=:8080 go run ./cmd/gateway --config ./config.yaml
 ```
+
+All public traffic then goes through `http://localhost:8080/apis/...`. Service
+binaries run via `go run` (not in docker-compose, which stays infra-only).
 
 ### New config / env vars
 
-`config.example.yaml` gained a config-driven Postgres DSN and a MinIO block.
-All keys are overridable via the `APP_` env convention (`_` → `.`):
+`config.example.yaml` gained a config-driven Postgres DSN, a MinIO block, the
+shared `jwt.secret`, and `gateway.upstreams`. All keys are overridable via the
+`APP_` env convention (`_` → `.`):
 
 | Config key | Env override | Default |
 |---|---|---|
@@ -203,6 +236,8 @@ All keys are overridable via the `APP_` env convention (`_` → `.`):
 | `datasource.minio.bucket` | `APP_DATASOURCE_MINIO_BUCKET` | `botb-media` |
 | `datasource.minio.use_ssl` | `APP_DATASOURCE_MINIO_USE_SSL` | `false` |
 | `datasource.minio.presign_expiry` | `APP_DATASOURCE_MINIO_PRESIGN_EXPIRY` | `15m` |
+| `jwt.secret` | `APP_JWT_SECRET` | `dev-insecure-change-me` |
+| `gateway.upstreams.<svc>` | `APP_GATEWAY_UPSTREAMS_<SVC>` | `http://localhost:808x` |
 
 > Note: the `make check` target references a `v1`-style flag set and a missing
 > `issues.exclude.yaml`; per `CLAUDE.md`, run `golangci-lint run` directly (it

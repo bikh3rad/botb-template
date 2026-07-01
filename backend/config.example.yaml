@@ -19,6 +19,22 @@ server:
   http:
     addr: ":8080"
 
+# Shared HMAC secret for admin JWT bearer tokens. Read the same way by the
+# gateway and every service (defense in depth). Override: APP_JWT_SECRET.
+# Use a long random value in production.
+jwt:
+  secret: "dev-insecure-change-me"
+
+# Gateway: single public entrypoint. Maps the <servicename> path segment of
+# /apis/<servicename>/... to that service's base URL. Override individual
+# upstreams with e.g. APP_GATEWAY_UPSTREAMS_COMPETITION=http://competition:8081
+gateway:
+  upstreams:
+    competition: "http://localhost:8081"
+    user: "http://localhost:8082"
+    draw: "http://localhost:8083"
+    media: "http://localhost:8084"
+
 
 
 

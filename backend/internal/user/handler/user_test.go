@@ -6,6 +6,7 @@ import (
 	"application/internal/user/entity"
 	userhandler "application/internal/user/handler"
 	"application/internal/user/mocks"
+	"application/pkg/middlewares"
 	"context"
 	"encoding/json"
 	"io"
@@ -14,11 +15,25 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+const testSecret = "test-secret"
+
+func validToken() string {
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": "admin",
+		"exp": time.Now().Add(time.Hour).Unix(),
+	})
+	s, _ := tok.SignedString([]byte(testSecret))
+
+	return s
+}
 
 type harness struct {
 	mux    *http.ServeMux
@@ -33,24 +48,40 @@ func newHarness(t *testing.T) harness {
 	tktUC := mocks.NewMockUsecaseTicket(t)
 	mux := http.NewServeMux()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	auth := middlewares.NewJWTAuth(middlewares.JWTSecret(testSecret))
 
-	uh := userhandler.NewUser(logger, mux, userUC)
+	uh := userhandler.NewUser(logger, mux, userUC, auth)
 	require.NoError(t, uh.RegisterHandler(context.Background()))
 
-	th := userhandler.NewTicket(logger, mux, tktUC)
+	th := userhandler.NewTicket(logger, mux, tktUC, auth)
 	require.NoError(t, th.RegisterHandler(context.Background()))
 
 	return harness{mux: mux, userUC: userUC, tktUC: tktUC}
 }
 
+// do issues a request carrying a valid admin token (public routes ignore it).
 func (h harness) do(method, target, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequestWithContext(context.Background(), method, target, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+validToken())
 
 	rec := httptest.NewRecorder()
 	h.mux.ServeHTTP(rec, req)
 
 	return rec
+}
+
+// TestAdmin_RequiresToken proves the user service's own admin group rejects an
+// unauthenticated call (defense in depth actually wired).
+func TestAdmin_RequiresToken(t *testing.T) {
+	h := newHarness(t)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+		"/apis/user/v1/admin/users", nil)
+	rec := httptest.NewRecorder()
+	h.mux.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 func TestRegister_Created(t *testing.T) {

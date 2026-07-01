@@ -14,6 +14,7 @@ import (
 	drawrepo "application/internal/draw/repo"
 	"application/internal/service"
 	svchandler "application/internal/service/handler"
+	"application/pkg/middlewares"
 	"context"
 
 	"github.com/google/wire"
@@ -34,6 +35,9 @@ func wireApp(
 		// Shared healthz endpoints.
 		flatbiz.HealthzProviderSet,
 		svchandler.NewMuxHealthzHandler,
+
+		// Shared JWT auth (admin route guard — defense in depth).
+		middlewares.JWTProviderSet,
 
 		// Draw domain.
 		drawbiz.ProviderSet,

@@ -15,6 +15,7 @@ import (
 	"application/internal/draw/repo"
 	"application/internal/service"
 	"application/internal/service/handler"
+	"application/pkg/middlewares"
 	"context"
 	"net/http"
 )
@@ -69,7 +70,12 @@ func wireApp(ctx context.Context) (app.Application, error) {
 	}
 	draw := repo.NewDraw(logger, postgresDB)
 	bizDraw := biz2.NewDraw(logger, draw)
-	handlerDraw := handler2.NewDraw(logger, serveMux, bizDraw)
+	jwtSecret, err := middlewares.NewJWTSecret(kConfig)
+	if err != nil {
+		return nil, err
+	}
+	jwtAuth := middlewares.NewJWTAuth(jwtSecret)
+	handlerDraw := handler2.NewDraw(logger, serveMux, bizDraw, jwtAuth)
 	v := handler2.NewServiceList(healthzHandler, handlerDraw)
 	httpHandler, err := service.NewHTTPHandler(ctx, logger, serveMux, v...)
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"application/internal/service"
 	"application/internal/user/biz"
 	"application/internal/user/dto"
+	"application/pkg/middlewares"
 	"context"
 	"encoding/json"
 	"errors"
@@ -21,25 +22,32 @@ type user struct {
 	tracer trace.Tracer
 	mux    *http.ServeMux
 	uc     biz.UsecaseUser
+	auth   *middlewares.JWTAuth
 }
 
 var _ service.Handler = (*user)(nil)
 
 // NewUser creates the user HTTP handler.
-func NewUser(logger *slog.Logger, mux *http.ServeMux, uc biz.UsecaseUser) *user {
+func NewUser(logger *slog.Logger, mux *http.ServeMux, uc biz.UsecaseUser, auth *middlewares.JWTAuth) *user {
 	return &user{
 		logger: logger.With("layer", "UserHandler"),
 		tracer: otel.Tracer("UserHandler"),
 		mux:    mux,
 		uc:     uc,
+		auth:   auth,
 	}
 }
 
-// RegisterHandler mounts registration (public) and user management (admin).
+// RegisterHandler mounts registration (public) and user management (admin,
+// JWT-guarded here as well as at the gateway — defense in depth).
 func (h *user) RegisterHandler(_ context.Context) error {
+	admin := func(fn http.HandlerFunc) http.HandlerFunc {
+		return middlewares.MultipleMiddleware(fn, h.auth.Middleware)
+	}
+
 	h.mux.HandleFunc("POST /apis/user/v1/users", h.register)
-	h.mux.HandleFunc("GET /apis/user/v1/admin/users", h.list)
-	h.mux.HandleFunc("GET /apis/user/v1/admin/users/{id}", h.get)
+	h.mux.HandleFunc("GET /apis/user/v1/admin/users", admin(h.list))
+	h.mux.HandleFunc("GET /apis/user/v1/admin/users/{id}", admin(h.get))
 
 	return nil
 }

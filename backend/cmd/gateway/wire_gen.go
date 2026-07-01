@@ -9,10 +9,7 @@ package main
 import (
 	"application/app"
 	"application/internal/biz"
-	biz2 "application/internal/competition/biz"
-	handler2 "application/internal/competition/handler"
-	"application/internal/competition/repo"
-	"application/internal/datasource"
+	"application/internal/gateway"
 	"application/internal/service"
 	"application/internal/service/handler"
 	"application/pkg/middlewares"
@@ -22,10 +19,10 @@ import (
 
 // Injectors from wire.go:
 
-// wireApp is the composition root for the competition service binary. It reuses
-// the shared app + HTTP infrastructure and Postgres datasource, adds the shared
-// healthz endpoints, and the competition domain stack. No object storage is
-// needed here — media is resolved via a read query against the shared database.
+// wireApp is the composition root for the gateway binary. It reuses the shared
+// app + HTTP infrastructure and shared healthz, adds the JWT auth middleware
+// (admin route guard) and the reverse-proxy dispatcher. No datasource is wired —
+// the gateway holds no state, it only proxies.
 func wireApp(ctx context.Context) (app.Application, error) {
 	runTimeFlags := app.NewRunTimeFlags()
 	kConfig, err := app.NewKoanfConfig(runTimeFlags)
@@ -61,23 +58,20 @@ func wireApp(ctx context.Context) (app.Application, error) {
 	serveMux := http.NewServeMux()
 	healthz := biz.NewHealthz(logger, controller)
 	healthzHandler := handler.NewMuxHealthzHandler(healthz, logger, serveMux)
-	postgresConfig, err := datasource.NewPostgresConfig(ctx, kConfig)
+	gatewayConfig, err := gateway.NewGatewayConfig(ctx, kConfig)
 	if err != nil {
 		return nil, err
 	}
-	postgresDB, err := datasource.NewPostgresDB(ctx, logger, controller, postgresConfig)
-	if err != nil {
-		return nil, err
-	}
-	competition := repo.NewCompetition(logger, postgresDB)
-	bizCompetition := biz2.NewCompetition(logger, competition)
 	jwtSecret, err := middlewares.NewJWTSecret(kConfig)
 	if err != nil {
 		return nil, err
 	}
 	jwtAuth := middlewares.NewJWTAuth(jwtSecret)
-	handlerCompetition := handler2.NewCompetition(logger, serveMux, bizCompetition, jwtAuth)
-	v := handler2.NewServiceList(healthzHandler, handlerCompetition)
+	gatewayGateway, err := gateway.NewGateway(logger, serveMux, gatewayConfig, jwtAuth)
+	if err != nil {
+		return nil, err
+	}
+	v := gateway.NewServiceList(healthzHandler, gatewayGateway)
 	httpHandler, err := service.NewHTTPHandler(ctx, logger, serveMux, v...)
 	if err != nil {
 		return nil, err

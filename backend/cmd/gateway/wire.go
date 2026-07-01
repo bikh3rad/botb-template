@@ -8,21 +8,19 @@ package main
 import (
 	"application/app"
 	flatbiz "application/internal/biz"
-	"application/internal/datasource"
+	"application/internal/gateway"
 	"application/internal/service"
 	svchandler "application/internal/service/handler"
 	"application/pkg/middlewares"
-	userbiz "application/internal/user/biz"
-	userhandler "application/internal/user/handler"
-	userrepo "application/internal/user/repo"
 	"context"
 
 	"github.com/google/wire"
 )
 
-// wireApp is the composition root for the user service binary. It reuses the
-// shared app + HTTP infrastructure and Postgres datasource, adds the shared
-// healthz endpoints, and the user + ticket domain stack.
+// wireApp is the composition root for the gateway binary. It reuses the shared
+// app + HTTP infrastructure and shared healthz, adds the JWT auth middleware
+// (admin route guard) and the reverse-proxy dispatcher. No datasource is wired —
+// the gateway holds no state, it only proxies.
 func wireApp(
 	ctx context.Context,
 ) (app.Application, error) {
@@ -30,18 +28,14 @@ func wireApp(
 		app.AppProviderSet,
 		service.ServerProviderSet,
 
-		datasource.PostgresProviderSet,
-
 		// Shared healthz endpoints.
 		flatbiz.HealthzProviderSet,
 		svchandler.NewMuxHealthzHandler,
 
-		// Shared JWT auth (admin route guard — defense in depth).
+		// Shared JWT auth (reads jwt.secret from config).
 		middlewares.JWTProviderSet,
 
-		// User + ticket domain.
-		userbiz.ProviderSet,
-		userrepo.ProviderSet,
-		userhandler.ProviderSet,
+		// Reverse-proxy dispatcher.
+		gateway.ProviderSet,
 	))
 }
