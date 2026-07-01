@@ -47,3 +47,6 @@ next-env.d.ts
 
 # Local temp files
 temp/
+
+# Uploaded media (runtime, not part of the template)
+public/uploads/
