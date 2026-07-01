@@ -1,0 +1,141 @@
+# BOTB backend — full stack in one command.
+#
+#   cp .env.example .env
+#   docker compose up -d --build
+#
+# Brings up Postgres + MinIO (reused from infra/compose includes), applies
+# migrations 000001–000005, creates the media bucket, then starts all five
+# services. Only the gateway publishes a port (8080). Every other service is
+# reachable only inside the compose network, by service name.
+#
+# The monitoring/redis includes are intentionally NOT pulled here — this file is
+# the minimal, reliable "just run the API" stack. Add them back for observability.
+
+name: botb-backend
+
+include:
+  - infra/compose/datasource/postgresql.yaml
+  - infra/compose/datasource/minio.yaml
+
+# ---------------------------------------------------------------------------
+# Shared config for every Go service. Values are koanf APP_* overrides layered
+# on top of the baked-in config.yaml (see app/config.go: APP_ prefix, _ -> .).
+# jwt.secret is defined ONCE here and shared by gateway + all services so the
+# two-layer admin JWT check agrees end to end.
+# ---------------------------------------------------------------------------
+x-service-env: &service-env
+  APP_JWT_SECRET: ${JWT_SECRET:-dev-insecure-change-me}
+  APP_DATASOURCE_POSTGRES_DSN: postgres://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@postgresql:5432/${POSTGRES_DB:-db}?sslmode=disable
+
+# Services must not start until Postgres is healthy AND migrations have applied.
+x-db-ready: &db-ready
+  postgresql:
+    condition: service_healthy
+  migrate:
+    condition: service_completed_successfully
+
+x-service-base: &service-base
+  restart: unless-stopped
+  expose:
+    - "8080"
+
+services:
+  # --- one-shot: apply migrations 000001–000005 before any service starts ---
+  migrate:
+    image: migrate/migrate:latest
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@postgresql:5432/${POSTGRES_DB:-db}?sslmode=disable"
+      - "up"
+
+  # --- one-shot: create the MinIO bucket the media service uploads into ---
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin} &&
+        mc mb --ignore-existing local/${MEDIA_BUCKET:-botb-media} &&
+        echo "bucket ${MEDIA_BUCKET:-botb-media} ready"
+
+  competition:
+    <<: *service-base
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: competition
+    environment: *service-env
+    depends_on: *db-ready
+
+  user:
+    <<: *service-base
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: user
+    environment: *service-env
+    depends_on: *db-ready
+
+  draw:
+    <<: *service-base
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: draw
+    environment: *service-env
+    depends_on: *db-ready
+
+  media:
+    <<: *service-base
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: media
+    environment:
+      <<: *service-env
+      APP_DATASOURCE_MINIO_ENDPOINT: minio:9000
+    depends_on:
+      <<: *db-ready
+      minio:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+
+  # --- gateway: the ONLY publicly published container ---
+  gateway:
+    <<: *service-base
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: gateway
+    environment:
+      <<: *service-env
+      APP_GATEWAY_UPSTREAMS_COMPETITION: http://competition:8080
+      APP_GATEWAY_UPSTREAMS_USER: http://user:8080
+      APP_GATEWAY_UPSTREAMS_DRAW: http://draw:8080
+      APP_GATEWAY_UPSTREAMS_MEDIA: http://media:8080
+    depends_on:
+      competition:
+        condition: service_started
+      user:
+        condition: service_started
+      draw:
+        condition: service_started
+      media:
+        condition: service_started
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"

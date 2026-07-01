@@ -1,0 +1,33 @@
+quiet: False
+# keeptree: True
+disable-version-string: True
+with-expecter: True
+# mockname: "{{.InterfaceName}}"
+# filename: "{{.MockName}}.go"
+outpkg: mocks
+packages:
+  application/internal/biz:
+    config:
+      dir: ./internal/mocks
+      all: true
+      recursive: true
+  application/internal/media/biz:
+    config:
+      dir: ./internal/media/mocks
+      all: true
+      recursive: true
+  application/internal/competition/biz:
+    config:
+      dir: ./internal/competition/mocks
+      all: true
+      recursive: true
+  application/internal/user/biz:
+    config:
+      dir: ./internal/user/mocks
+      all: true
+      recursive: true
+  application/internal/draw/biz:
+    config:
+      dir: ./internal/draw/mocks
+      all: true
+      recursive: true

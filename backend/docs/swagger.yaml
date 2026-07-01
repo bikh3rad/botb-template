@@ -1,0 +1,1125 @@
+definitions:
+  application_internal_competition_dto.CompetitionListResp:
+    properties:
+      competitions:
+        items:
+          $ref: '#/definitions/dto.CompetitionResp'
+        type: array
+      count:
+        type: integer
+    type: object
+  application_internal_draw_dto.DrawListResp:
+    properties:
+      count:
+        type: integer
+      draws:
+        items:
+          $ref: '#/definitions/dto.DrawResp'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
+  application_internal_media_dto.MediaResp:
+    properties:
+      bucket:
+        type: string
+      content_type:
+        type: string
+      created_at:
+        type: string
+      duration_seconds:
+        type: number
+      height:
+        type: integer
+      id:
+        type: string
+      kind:
+        type: string
+      object_key:
+        type: string
+      owner_id:
+        type: string
+      owner_type:
+        type: string
+      position:
+        type: integer
+      size_bytes:
+        type: integer
+      url:
+        description: |-
+          URL is a time-limited presigned link for reading the object. Populated on
+          single-resource reads, empty on create.
+        type: string
+      width:
+        type: integer
+    type: object
+  dto.CompetitionReq:
+    properties:
+      description:
+        type: string
+      ends_at:
+        type: string
+      prize:
+        type: string
+      slug:
+        type: string
+      starts_at:
+        type: string
+      status:
+        type: string
+      ticket_price_pence:
+        type: integer
+      tickets_total:
+        type: integer
+      title:
+        type: string
+    type: object
+  dto.CompetitionResp:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      ends_at:
+        type: string
+      id:
+        type: string
+      media:
+        items:
+          $ref: '#/definitions/dto.MediaRefResp'
+        type: array
+      prize:
+        type: string
+      slug:
+        type: string
+      starts_at:
+        type: string
+      status:
+        type: string
+      ticket_price_pence:
+        type: integer
+      tickets_sold:
+        type: integer
+      tickets_total:
+        type: integer
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  dto.CreateDrawReq:
+    properties:
+      competition_id:
+        type: string
+      prize:
+        type: string
+    type: object
+  dto.CreatePlaceholderReq:
+    properties:
+      name:
+        maxLength: 255
+        minLength: 1
+        type: string
+    required:
+    - name
+    type: object
+  dto.DrawResp:
+    properties:
+      competition_id:
+        type: string
+      created_at:
+        type: string
+      drawn_at:
+        type: string
+      id:
+        type: string
+      prize:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      winner_ticket_id:
+        type: string
+      winner_user_id:
+        type: string
+    type: object
+  dto.ErrorResponse:
+    properties:
+      details:
+        type: string
+      message:
+        type: string
+    type: object
+  dto.MediaListResp:
+    properties:
+      count:
+        type: integer
+      media:
+        items:
+          $ref: '#/definitions/dto.MediaResp'
+        type: array
+    type: object
+  dto.MediaRefResp:
+    properties:
+      bucket:
+        type: string
+      content_type:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      object_key:
+        type: string
+      position:
+        type: integer
+    type: object
+  dto.MediaResp:
+    properties:
+      bucket:
+        type: string
+      content_type:
+        type: string
+      created_at:
+        type: string
+      duration_seconds:
+        type: number
+      height:
+        type: integer
+      id:
+        type: string
+      kind:
+        type: string
+      object_key:
+        type: string
+      owner_id:
+        type: string
+      owner_type:
+        type: string
+      position:
+        type: integer
+      size_bytes:
+        type: integer
+      url:
+        description: |-
+          URL is a time-limited presigned link for reading the object. Populated on
+          single-resource reads, empty on create.
+        type: string
+      width:
+        type: integer
+    type: object
+  dto.PlaceholderListResponse:
+    properties:
+      count:
+        type: integer
+      placeholders:
+        items:
+          $ref: '#/definitions/dto.PlaceholderResp'
+        type: array
+    type: object
+  dto.PlaceholderResp:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  dto.PurchaseReq:
+    properties:
+      competition_id:
+        type: string
+      quantity:
+        type: integer
+      user_id:
+        type: string
+    type: object
+  dto.PurchaseResp:
+    properties:
+      count:
+        type: integer
+      tickets:
+        items:
+          $ref: '#/definitions/dto.TicketResp'
+        type: array
+      total_cost_pence:
+        type: integer
+      user:
+        $ref: '#/definitions/dto.UserResp'
+    type: object
+  dto.RegisterReq:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+    type: object
+  dto.TicketListResp:
+    properties:
+      count:
+        type: integer
+      tickets:
+        items:
+          $ref: '#/definitions/dto.TicketResp'
+        type: array
+    type: object
+  dto.TicketResp:
+    properties:
+      competition_id:
+        type: string
+      id:
+        type: string
+      purchased_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  dto.UserListResp:
+    properties:
+      count:
+        type: integer
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/dto.UserResp'
+        type: array
+    type: object
+  dto.UserResp:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      tickets_owned:
+        type: integer
+      total_spent_pence:
+        type: integer
+    type: object
+externalDocs:
+  description: OpenAPI
+  url: https://swagger.io/resources/open-api/
+info:
+  contact:
+    email: info@aban.io
+    name: API Support
+    url: http://aban.io/support
+  description: API documentation
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Swagger
+  version: "1.0"
+paths:
+  /apis/competition/v1/admin/competitions:
+    post:
+      consumes:
+      - application/json
+      description: 'Admin: create a new competition.'
+      parameters:
+      - description: Competition
+        in: body
+        name: competition
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CompetitionReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.CompetitionResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Create a competition
+      tags:
+      - Competitions (Admin)
+  /apis/competition/v1/admin/competitions/{id}:
+    delete:
+      description: 'Admin: delete a competition by ID.'
+      parameters:
+      - description: Competition UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Delete a competition
+      tags:
+      - Competitions (Admin)
+    put:
+      consumes:
+      - application/json
+      description: 'Admin: update an existing competition.'
+      parameters:
+      - description: Competition UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Competition
+        in: body
+        name: competition
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CompetitionReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.CompetitionResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Update a competition
+      tags:
+      - Competitions (Admin)
+  /apis/competition/v1/competitions:
+    get:
+      description: Public list of competitions, optionally filtered by status.
+      parameters:
+      - description: 'Filter by status: draft, live or closed'
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/application_internal_competition_dto.CompetitionListResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List competitions
+      tags:
+      - Competitions
+  /apis/competition/v1/competitions/{id}:
+    get:
+      description: Public fetch of a competition by ID, including associated media.
+      parameters:
+      - description: Competition UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.CompetitionResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get a competition
+      tags:
+      - Competitions
+  /apis/draw/v1/admin/draws:
+    get:
+      description: 'Admin: paginated, searchable draw list (by prize).'
+      parameters:
+      - description: Search prize
+        in: query
+        name: q
+        type: string
+      - description: Page size (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/application_internal_draw_dto.DrawListResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List draws
+      tags:
+      - Draws (Admin)
+    post:
+      consumes:
+      - application/json
+      description: 'Admin: create a pending draw for a competition.'
+      parameters:
+      - description: Draw
+        in: body
+        name: draw
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateDrawReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.DrawResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Create a draw
+      tags:
+      - Draws (Admin)
+  /apis/draw/v1/admin/draws/{id}:
+    get:
+      description: 'Admin: fetch a draw by ID.'
+      parameters:
+      - description: Draw UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.DrawResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get a draw
+      tags:
+      - Draws (Admin)
+  /apis/draw/v1/admin/draws/{id}/run:
+    post:
+      description: 'Admin: run a pending draw — selects a winning ticket and records
+        the winner. Rejects an already-run draw.'
+      parameters:
+      - description: Draw UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.DrawResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Already Drawn
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "422":
+          description: No Tickets
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Run a draw
+      tags:
+      - Draws (Admin)
+  /apis/draw/v1/draws/{id}:
+    get:
+      description: 'Public: read a completed (drawn/void) draw result. Pending draws
+        return 404.'
+      parameters:
+      - description: Draw UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.DrawResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get a draw result (public)
+      tags:
+      - Draws
+  /apis/media/v1/media:
+    get:
+      description: List every media object attached to an owner (owner_type + owner_id
+        query params).
+      parameters:
+      - description: Owner object type, e.g. competition
+        in: query
+        name: owner_type
+        required: true
+        type: string
+      - description: Owner object UUID
+        in: query
+        name: owner_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.MediaListResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List media for an owner
+      tags:
+      - Media
+  /apis/media/v1/media/{id}:
+    get:
+      description: Fetch a media record by ID, including a time-limited presigned
+        URL.
+      parameters:
+      - description: Media UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.MediaResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get media metadata
+      tags:
+      - Media
+  /apis/media/v1/uploads:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload an image (jpeg/png/webp ≤10MB) or video (mp4/webm ≤200MB)
+        and store it in object storage.
+      parameters:
+      - description: Media file
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Owner object type, e.g. competition
+        in: formData
+        name: owner_type
+        required: true
+        type: string
+      - description: Owner object UUID
+        in: formData
+        name: owner_id
+        required: true
+        type: string
+      - description: Ordering position (default 0)
+        in: formData
+        name: position
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/application_internal_media_dto.MediaResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "413":
+          description: Payload Too Large
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "415":
+          description: Unsupported Media Type
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Upload a media file
+      tags:
+      - Media
+  /apis/mocks/placeholders:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all placeholders.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+          schema:
+            $ref: '#/definitions/dto.PlaceholderListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List placeholders
+      tags:
+      - Placeholders
+    post:
+      consumes:
+      - application/json
+      description: Create a new placeholder with the provided details.
+      parameters:
+      - description: Placeholder details
+        in: body
+        name: placeholder
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreatePlaceholderReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.PlaceholderResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Create a new placeholder
+      tags:
+      - Placeholders
+  /apis/mocks/placeholders/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specific placeholder by ID.
+      parameters:
+      - description: Placeholder UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: ""
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Delete a placeholder
+      tags:
+      - Placeholders
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the details of a specific placeholder by ID.
+      parameters:
+      - description: Placeholder UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PlaceholderResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get a placeholder
+      tags:
+      - Placeholders
+    put:
+      consumes:
+      - application/json
+      description: Update the details of a specific placeholder by ID.
+      parameters:
+      - description: Placeholder UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated placeholder details
+        in: body
+        name: placeholder
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreatePlaceholderReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PlaceholderResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Update a placeholder
+      tags:
+      - Placeholders
+  /apis/user/v1/admin/users:
+    get:
+      description: 'Admin: paginated, searchable user list (name/email).'
+      parameters:
+      - description: Search name or email
+        in: query
+        name: q
+        type: string
+      - description: Page size (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UserListResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List users
+      tags:
+      - Users (Admin)
+  /apis/user/v1/admin/users/{id}:
+    get:
+      description: 'Admin: fetch a user by ID.'
+      parameters:
+      - description: User UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UserResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get a user
+      tags:
+      - Users (Admin)
+  /apis/user/v1/admin/users/{id}/tickets:
+    get:
+      description: 'Admin: list every ticket a user has bought.'
+      parameters:
+      - description: User UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TicketListResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: List a user's tickets
+      tags:
+      - Tickets (Admin)
+  /apis/user/v1/tickets:
+    post:
+      consumes:
+      - application/json
+      description: Buy `quantity` tickets for a competition; charges the user and
+        records the entries.
+      parameters:
+      - description: Purchase
+        in: body
+        name: purchase
+        required: true
+        schema:
+          $ref: '#/definitions/dto.PurchaseReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.PurchaseResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Purchase tickets
+      tags:
+      - Tickets
+  /apis/user/v1/users:
+    post:
+      consumes:
+      - application/json
+      description: Public self-registration with a name and email.
+      parameters:
+      - description: Registration
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.UserResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Register a user
+      tags:
+      - Users
+  /healthz/liveness:
+    get:
+      consumes:
+      - application/json
+      description: Check the liveness of the service
+      operationId: healthz-liveness
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+      summary: Healthz Liveness
+      tags:
+      - healthz
+  /healthz/panic:
+    get:
+      responses:
+        "500":
+          description: panic
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Panic for test
+      tags:
+      - healthz
+  /healthz/rediness:
+    get:
+      consumes:
+      - application/json
+      description: Check the readiness of the service
+      operationId: healthz-rediness
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+      summary: Healthz Readiness
+      tags:
+      - healthz
+  /healthz/sleep/{time}:
+    get:
+      parameters:
+      - description: Time to sleep, e.g. 30s
+        in: path
+        name: time
+        required: true
+        type: string
+      responses:
+        "200":
+          description: ok
+      summary: Long Run for test
+      tags:
+      - healthz
+securityDefinitions:
+  BasicAuth:
+    type: basic
+swagger: "2.0"
