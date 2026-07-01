@@ -1,0 +1,75 @@
+name: "go-template"
+version: "v1.0.0"
+description: "A simple go template"
+environment: "development"
+
+app:
+  title: "Go Template"
+  description: "A simple go template"
+  version: "v1.0.0"
+  environment: "development"
+
+
+logger:
+  slog:
+    level: "debug"
+    encoding: "text" # text or json
+
+server:
+  http:
+    addr: ":8080"
+
+
+
+
+# TODO: I like to use open-telemetry collector config style
+# https://opentelemetry.io/docs/reference/specification/protocol/exporter/
+collector:
+  exporters:
+    otlp:
+      endpoint: "localhost:4317"
+      insecure: true
+  traces:
+    enabled: true
+  metrics:
+    enabled: true
+  logs:
+    enabled: true
+
+service:
+  scheduler:
+    enabled: false
+    interval: "3s"
+
+
+
+datasource:
+  # PostgreSQL — override with APP_DATASOURCE_POSTGRES_DSN.
+  postgres:
+    dsn: "postgresql://botb:botb@localhost:5432/botb?sslmode=disable"
+  # MinIO / S3-compatible object storage — override with APP_DATASOURCE_MINIO_*.
+  minio:
+    endpoint: "localhost:9000"
+    access_key: "minioadmin"
+    secret_key: "minioadmin"
+    bucket: "botb-media"
+    region: "us-east-1"
+    use_ssl: false
+    presign_expiry: "15m"
+  mysql:
+    dsn: "root:salam@tcp(localhost:3306)/schaduler?charset=utf8mb4&parseTime=True&loc=UTC"
+    connection_pool_enabled: true
+    connection_pool_max_idle: 10
+    connection_pool_max_open: 100
+    connection_pool_max_lifetime: "1h"
+    connection_pool_max_idle_time: "1h"
+    connection_pool_health_check_period: "1m"
+    connection_pool_health_check_timeout: "1s"
+    enabled: false
+  redis:
+    Enabled: false
+    Address: localhost:6379
+    Password: ""
+    DB: ""
+
+
