@@ -4,11 +4,10 @@
 package e2e
 
 import (
+	"application/internal/seeddata"
 	"net/http"
 	"strings"
 	"testing"
-
-	"application/internal/seeddata"
 )
 
 // TestPublicReads verifies the public competition endpoints return the seeded

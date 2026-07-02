@@ -15,6 +15,7 @@
 package main
 
 import (
+	"application/internal/seeddata"
 	"bytes"
 	"context"
 	"database/sql"
@@ -25,8 +26,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"application/internal/seeddata"
 
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib" // register the "pgx" database/sql driver
