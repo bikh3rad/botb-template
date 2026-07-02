@@ -69,11 +69,23 @@ func NewGateway(
 	}, nil
 }
 
-// RegisterHandler mounts the single /apis/ dispatch entrypoint.
+// RegisterHandler mounts the single /apis/ dispatch entrypoint plus a friendly
+// root handler so hitting `/` returns a small JSON pointer instead of a bare
+// 404. The `{$}` pattern (Go 1.22+ ServeMux) matches ONLY the exact root path,
+// so it does not shadow /apis/ or any other route; unknown /apis/<svc> paths
+// still return 404 via dispatch.
 func (h *gateway) RegisterHandler(_ context.Context) error {
 	h.mux.HandleFunc("/apis/", h.dispatch)
+	h.mux.HandleFunc("GET /{$}", h.root)
 
 	return nil
+}
+
+// root is a friendly landing handler for GET / on the gateway.
+func (h *gateway) root(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"service":"botb-gateway","see":"/apis/<svc>/v1/..."}`))
 }
 
 // dispatch routes by the <servicename> path segment. Admin paths

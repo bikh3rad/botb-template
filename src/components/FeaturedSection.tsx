@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { CompetitionCard } from "@/components/CompetitionCard";
-import { dreamCarCard, featuredCompetitions, subscriberCard } from "@/lib/data";
+import type {
+  CardView,
+  DreamCarView,
+  FeaturedView,
+  SubscriberView,
+} from "@/lib/presentation";
 
-function DreamCarCard() {
-  const d = dreamCarCard;
+function DreamCarCard({ dreamCar }: { dreamCar: DreamCarView }) {
+  const d = dreamCar;
   return (
-    <Link href="/prizes/cars" className="group flex h-full flex-col overflow-hidden rounded-lg border border-botb-card-border bg-white shadow-[0_1.5px_8px_0_rgba(0,0,0,0.2)] transition-all duration-200 hover:-translate-y-0.5">
+    <Link href={d.href} className="group flex h-full flex-col overflow-hidden rounded-lg border border-botb-card-border bg-white shadow-[0_1.5px_8px_0_rgba(0,0,0,0.2)] transition-all duration-200 hover:-translate-y-0.5">
       {/* How-it-works strip over dark image */}
       <div className="relative">
         <img src={d.heroImage} alt="Dream Car" className="aspect-[342/150] w-full object-cover" />
@@ -49,11 +54,11 @@ function DreamCarCard() {
   );
 }
 
-function SubscriberCard() {
-  const s = subscriberCard;
+function SubscriberCard({ subscriber }: { subscriber: SubscriberView }) {
+  const s = subscriber;
   return (
     <Link
-      href="/prizes/iphone-17-and-1-249-prizes"
+      href={s.href}
       className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-botb-card-border bg-[#1f5b3a] shadow-[0_1.5px_8px_0_rgba(0,0,0,0.2)] transition-all duration-200 hover:-translate-y-0.5"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -65,7 +70,12 @@ function SubscriberCard() {
   );
 }
 
-export function FeaturedSection() {
+/** Featured grid: Dream Car cell, 3 cards, subscriber cell, 2 cards. */
+export function FeaturedSection({ featured }: { featured: FeaturedView }) {
+  const { cards, dreamCar, subscriber } = featured;
+  // Interleave the bespoke promo cells between the API-driven cards to match the
+  // original 7-cell layout: [DreamCar, c0, c1, c2, Subscriber, c3, c4].
+  const card = (i: number): CardView | undefined => cards[i];
   return (
     <section
       id="featured-competitions"
@@ -75,13 +85,13 @@ export function FeaturedSection() {
         Featured Competitions
       </h2>
       <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <DreamCarCard />
-        <CompetitionCard competition={featuredCompetitions[0]} />
-        <CompetitionCard competition={featuredCompetitions[1]} />
-        <CompetitionCard competition={featuredCompetitions[2]} />
-        <SubscriberCard />
-        <CompetitionCard competition={featuredCompetitions[3]} />
-        <CompetitionCard competition={featuredCompetitions[4]} />
+        <DreamCarCard dreamCar={dreamCar} />
+        {card(0) && <CompetitionCard competition={card(0)!} />}
+        {card(1) && <CompetitionCard competition={card(1)!} />}
+        {card(2) && <CompetitionCard competition={card(2)!} />}
+        <SubscriberCard subscriber={subscriber} />
+        {card(3) && <CompetitionCard competition={card(3)!} />}
+        {card(4) && <CompetitionCard competition={card(4)!} />}
       </div>
     </section>
   );

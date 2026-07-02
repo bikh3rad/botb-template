@@ -79,3 +79,19 @@ check:
 build:
 	docker build -t buildf .
 
+
+.PHONY: e2e
+# Run the end-to-end suite against a LIVE compose stack through the gateway.
+# Bring the stack up first: docker compose up -d --build && make seed
+E2E_BASE_URL ?= http://localhost:8080
+e2e:
+	E2E_BASE_URL=$(E2E_BASE_URL) go test -tags e2e -count=1 -v ./test/e2e/...
+
+
+.PHONY: seed
+# Seed Postgres + MinIO with the canonical sample inventory. Requires
+# APP_DATASOURCE_POSTGRES_DSN and the SEED_MINIO_* env vars (see cmd/seed).
+# Idempotent: IDs are deterministic UUIDv5, so re-running upserts, never dupes.
+seed:
+	go run ./cmd/seed
+

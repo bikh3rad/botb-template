@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  allCompetitions,
-  getCompetitionBySlug,
-} from "@/lib/competitions";
+import { getCompetitions, getCompetitionBySlug } from "@/lib/api";
+import { competitionImage, toDetailView } from "@/lib/presentation";
 import type { TitleBarColor } from "@/types";
 import { TicketIcon } from "@/components/icons";
 import { EnterEntry } from "@/components/EnterEntry";
@@ -21,9 +19,9 @@ const TITLE_BAR_BG: Record<TitleBarColor, string> = {
 /** Visual-only gallery tabs mirroring botb.com detail pages. */
 const GALLERY_TABS = ["Tour", "Photos", "Floorplan", "Location"] as const;
 
-export function generateStaticParams() {
-  return allCompetitions.map((c) => ({ slug: c.slug }));
-}
+// Rendered at request time: slugs live in the backend, so we resolve on demand
+// rather than pre-generating params (which would require a backend at build).
+export const dynamic = "force-dynamic";
 
 export default async function Page({
   params,
@@ -31,26 +29,35 @@ export default async function Page({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const c = getCompetitionBySlug(slug);
+  const competition = await getCompetitionBySlug(slug);
 
-  if (!c) {
+  if (!competition) {
     notFound();
   }
 
+  const c = toDetailView(competition);
   const displayTitle = c.description;
   const price = c.price ?? "£0.00";
   const priceLabel = c.priceLabel ?? "TICKET PRICE";
 
   // Generic spec grid derived from the competition data.
   const specs: { label: string; value: string }[] = [
-    { label: "Prize Value", value: c.value ?? c.title },
-    { label: "Cash Alternative", value: c.cashAlternative ?? "Available" },
+    { label: "Prize Value", value: c.value },
+    { label: "Cash Alternative", value: "Available" },
     { label: "Draw", value: "Live on Facebook" },
     { label: "Tickets from", value: price },
   ];
 
-  // A handful of other competitions for the bottom strip.
-  const more = allCompetitions.filter((x) => x.slug !== c.slug).slice(0, 4);
+  // A handful of other live competitions for the bottom strip.
+  const others = await getCompetitions("live");
+  const more = others
+    .filter((x) => x.slug !== competition.slug)
+    .slice(0, 4)
+    .map((x) => ({
+      slug: x.slug,
+      description: x.description,
+      image: competitionImage(x),
+    }));
 
   return (
     <>
@@ -100,12 +107,10 @@ export default async function Page({
           {displayTitle}
         </h1>
 
-        {/* Cash alternative pill */}
-        {c.cashAlternative && (
-          <p className="mt-3 inline-flex rounded-full border border-botb-orange px-4 py-1 font-jost text-[13px] font-semibold uppercase text-botb-orange">
-            Or take {c.cashAlternative} cash
-          </p>
-        )}
+        {/* Prize pill */}
+        <p className="mt-3 inline-flex rounded-full border border-botb-orange px-4 py-1 font-jost text-[13px] font-semibold uppercase text-botb-orange">
+          {c.value}
+        </p>
 
         {/* Two-column area: details on the left, price/entry on the right */}
         <div className="mt-8 grid grid-cols-1 gap-8 md:grid-cols-[1fr_320px]">
@@ -145,9 +150,8 @@ export default async function Page({
                 </p>
                 <p>
                   Every ticket costs just {price}, and the more you buy the
-                  greater your chances. If a car isn&apos;t for you, take the cash
-                  alternative of {c.cashAlternative ?? "an equivalent value"}{" "}
-                  instead — the choice is always yours.
+                  greater your chances. Prefer the cash? Take an equivalent cash
+                  alternative instead — the choice is always yours.
                 </p>
                 <p>
                   Winners are drawn live on Facebook, so you can watch the moment
