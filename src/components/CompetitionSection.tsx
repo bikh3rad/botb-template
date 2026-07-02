@@ -1,7 +1,7 @@
 import { CompetitionCard } from "@/components/CompetitionCard";
-import type { CompetitionSection as Section } from "@/types";
+import type { HomeSectionView } from "@/lib/presentation";
 
-export function CompetitionSection({ section }: { section: Section }) {
+export function CompetitionSection({ section }: { section: HomeSectionView }) {
   return (
     <section
       id={section.id}
@@ -14,8 +14,8 @@ export function CompetitionSection({ section }: { section: Section }) {
         <p className="mt-1 text-[15px] text-botb-muted">{section.subtitle}</p>
       )}
       <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        {section.competitions.map((competition, i) => (
-          <CompetitionCard key={`${section.id}-${i}`} competition={competition} />
+        {section.cards.map((card) => (
+          <CompetitionCard key={`${section.id}-${card.slug}`} competition={card} />
         ))}
       </div>
     </section>

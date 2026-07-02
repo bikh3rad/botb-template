@@ -1,15 +1,8 @@
 import Link from "next/link";
-import { winners } from "@/lib/data";
-import type { Winner } from "@/types";
+import { getWinners, type WinnerFeedItem } from "@/lib/api";
 
-const extraWinners: Winner[] = [
-  { name: "Aisha K.", prize: "Rolex Submariner", wonFor: "£0.05", revealed: "2 days ago", image: "/images/winners/kfi-1.webp" },
-  { name: "Liam D.", prize: "£5,000 Cash", wonFor: "£0.03", revealed: "3 days ago", image: "/images/winners/kfi-3.webp" },
-  { name: "Chloe F.", prize: "PlayStation 6 Bundle", wonFor: "£0.02", revealed: "3 days ago", image: "/images/winners/kfi-5.webp" },
-  { name: "Raj P.", prize: "Audi RS3 Carbon Black", wonFor: "£0.06", revealed: "4 days ago", image: "/images/winners/kfi-7.webp" },
-];
-
-const allWinners: Winner[] = [...winners, ...extraWinners];
+// Rendered at request time (backend not required at build).
+export const dynamic = "force-dynamic";
 
 const stats = [
   { value: "26 Years", label: "UK's No.1" },
@@ -17,7 +10,9 @@ const stats = [
   { value: "721k+", label: "guaranteed winners" },
 ];
 
-export default function WinnersPage() {
+export default async function WinnersPage() {
+  const allWinners = await getWinners();
+
   return (
     <div className="mx-auto max-w-[1360px] px-4 py-10">
       <header className="mb-8">
@@ -66,7 +61,7 @@ export default function WinnersPage() {
   );
 }
 
-function WinnerCardItem({ winner }: { winner: Winner }) {
+function WinnerCardItem({ winner }: { winner: WinnerFeedItem }) {
   return (
     <article className="overflow-hidden rounded-lg border border-botb-card-border bg-white shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:shadow-md">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -78,9 +73,7 @@ function WinnerCardItem({ winner }: { winner: Winner }) {
       <div className="p-3">
         <h3 className="font-jost font-semibold text-botb-text">{winner.name}</h3>
         <p className="text-sm text-botb-muted">{winner.prize}</p>
-        <p className="mt-1 text-xs font-medium text-green-600">
-          Won for {winner.wonFor}
-        </p>
+        <p className="mt-1 text-xs font-medium text-green-600">Winner</p>
         <p className="mt-1 text-xs text-botb-muted">Revealed {winner.revealed}</p>
       </div>
     </article>

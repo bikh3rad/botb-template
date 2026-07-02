@@ -1,7 +1,6 @@
 import type { CSSProperties } from "react";
 
-import { winners, winnersCount } from "@/lib/data";
-import type { Winner } from "@/types";
+import type { WinnerFeedItem } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 /**
@@ -9,7 +8,7 @@ import { cn } from "@/lib/utils";
  * component so the winners list can be rendered twice (for the seamless loop)
  * without duplicating markup.
  */
-function WinnerCard({ winner }: { winner: Winner }) {
+function WinnerCard({ winner }: { winner: WinnerFeedItem }) {
   return (
     <div className="relative mx-2 flex min-w-[230px] shrink-0 items-center gap-3 rounded-lg border border-[#e3e3e3] bg-white px-3 py-2 shadow-sm">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -24,9 +23,7 @@ function WinnerCard({ winner }: { winner: Winner }) {
           {winner.name}
         </p>
         <p className="text-[13px] text-botb-muted">{winner.prize}</p>
-        <p className="text-[12px] font-medium text-green-600">
-          Won for {winner.wonFor}
-        </p>
+        <p className="text-[12px] font-medium text-green-600">Winner</p>
       </div>
       <span className="botb-badge-gradient absolute right-1 top-1 rounded-full px-2 py-0.5 text-[10px] text-white">
         Revealed {winner.revealed}
@@ -40,9 +37,17 @@ function WinnerCard({ winner }: { winner: Winner }) {
  * winners list is rendered twice back-to-back so the `.animate-marquee`
  * translateX(0 → -50%) loop is seamless. Hovering the viewport pauses it.
  */
-export function WinnersTicker() {
+export function WinnersTicker({
+  winners,
+  winnersCount,
+}: {
+  winners: WinnerFeedItem[];
+  winnersCount: string;
+}) {
   // Custom property consumed by the `.animate-marquee` keyframe duration var.
   const trackStyle = { "--marquee-duration": "40s" } as CSSProperties;
+
+  if (winners.length === 0) return null;
 
   return (
     <section className="mx-auto my-5 max-w-[1360px] px-2 md:px-5 lg:my-6">
