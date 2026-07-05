@@ -27,8 +27,9 @@ const testSecret = "test-secret"
 
 func validToken() string {
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": "admin",
-		"exp": time.Now().Add(time.Hour).Unix(),
+		"sub":  "admin",
+		"role": "admin",
+		"exp":  time.Now().Add(time.Hour).Unix(),
 	})
 	s, _ := tok.SignedString([]byte(testSecret))
 

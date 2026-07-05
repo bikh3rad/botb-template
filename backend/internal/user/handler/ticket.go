@@ -43,7 +43,7 @@ func (h *ticket) RegisterHandler(_ context.Context) error {
 	h.mux.HandleFunc("POST /apis/user/v1/tickets", h.purchase)
 	h.mux.HandleFunc(
 		"GET /apis/user/v1/admin/users/{id}/tickets",
-		middlewares.MultipleMiddleware(h.listByUser, h.auth.Middleware),
+		middlewares.MultipleMiddleware(h.listByUser, h.auth.RequireAdmin),
 	)
 
 	return nil

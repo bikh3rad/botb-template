@@ -48,7 +48,7 @@ func NewCompetition(
 // service reached directly on its own port must not be unprotected.
 func (h *competition) RegisterHandler(_ context.Context) error {
 	admin := func(fn http.HandlerFunc) http.HandlerFunc {
-		return middlewares.MultipleMiddleware(fn, h.auth.Middleware)
+		return middlewares.MultipleMiddleware(fn, h.auth.RequireAdmin)
 	}
 
 	// Public.

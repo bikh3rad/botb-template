@@ -44,7 +44,7 @@ func NewDraw(logger *slog.Logger, mux *http.ServeMux, uc biz.UsecaseDraw, auth *
 // unprotected.
 func (h *draw) RegisterHandler(_ context.Context) error {
 	admin := func(fn http.HandlerFunc) http.HandlerFunc {
-		return middlewares.MultipleMiddleware(fn, h.auth.Middleware)
+		return middlewares.MultipleMiddleware(fn, h.auth.RequireAdmin)
 	}
 
 	// Admin.

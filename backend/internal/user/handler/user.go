@@ -42,7 +42,7 @@ func NewUser(logger *slog.Logger, mux *http.ServeMux, uc biz.UsecaseUser, auth *
 // JWT-guarded here as well as at the gateway — defense in depth).
 func (h *user) RegisterHandler(_ context.Context) error {
 	admin := func(fn http.HandlerFunc) http.HandlerFunc {
-		return middlewares.MultipleMiddleware(fn, h.auth.Middleware)
+		return middlewares.MultipleMiddleware(fn, h.auth.RequireAdmin)
 	}
 
 	h.mux.HandleFunc("POST /apis/user/v1/users", h.register)
