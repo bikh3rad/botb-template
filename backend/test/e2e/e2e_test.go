@@ -4,10 +4,11 @@
 package e2e
 
 import (
-	"application/internal/seeddata"
 	"net/http"
 	"strings"
 	"testing"
+
+	"application/internal/seeddata"
 )
 
 // TestPublicReads verifies the public competition endpoints return the seeded
@@ -102,7 +103,7 @@ func TestMediaResolvesFromMinIO(t *testing.T) {
 func TestDrawPublicReadReturnsWinners(t *testing.T) {
 	requireStack(t)
 
-	token := mintAdminToken(t)
+	token := superadminToken(t)
 
 	resp, body := request(t, http.MethodGet, "/apis/draw/v1/admin/draws", token, nil)
 	requireStatus(t, resp, body, http.StatusOK)
@@ -150,7 +151,7 @@ func TestAdminAuthGuard(t *testing.T) {
 	})
 
 	t.Run("valid token passes the guard", func(t *testing.T) {
-		token := mintAdminToken(t)
+		token := superadminToken(t)
 
 		// A minted token must get PAST auth. We do not care whether the create
 		// then succeeds or fails validation — only that it is not a 401.
@@ -223,7 +224,7 @@ func TestFullPublicFlow(t *testing.T) {
 	}
 
 	// 3. Read the user back via the admin endpoint and assert the balance moved.
-	token := mintAdminToken(t)
+	token := superadminToken(t)
 	getResp, getBody := request(t, http.MethodGet, "/apis/user/v1/admin/users/"+created.ID, token, nil)
 	requireStatus(t, getResp, getBody, http.StatusOK)
 
