@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"os"
 	"testing"
 	"time"
@@ -356,9 +357,15 @@ func uploadMedia(t *testing.T, token, ownerType, ownerID string, position int) m
 	body := new(bytes.Buffer)
 	w := multipart.NewWriter(body)
 
-	part, err := w.CreateFormFile("file", "pixel.png")
+	// Set the part's Content-Type explicitly — the media service reads it to
+	// allow-list the kind; CreateFormFile would default to octet-stream (415).
+	hdr := textproto.MIMEHeader{}
+	hdr.Set("Content-Disposition", `form-data; name="file"; filename="pixel.png"`)
+	hdr.Set("Content-Type", "image/png")
+
+	part, err := w.CreatePart(hdr)
 	if err != nil {
-		t.Fatalf("create form file: %v", err)
+		t.Fatalf("create form part: %v", err)
 	}
 	if _, err := part.Write(onePixelPNG); err != nil {
 		t.Fatalf("write file part: %v", err)

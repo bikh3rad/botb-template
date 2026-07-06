@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
@@ -15,7 +16,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+// useSearchParams() forces client-side rendering, which Next requires to sit
+// behind a Suspense boundary so the rest of the tree can still prerender.
 export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const search = useSearchParams();
   const next = search.get("next") ?? "/admin";
