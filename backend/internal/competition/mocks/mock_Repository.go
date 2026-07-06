@@ -84,21 +84,33 @@ func (_c *MockRepository_Create_Call) RunAndReturn(run func(context.Context, ent
 }
 
 // Delete provides a mock function with given fields: ctx, id
-func (_m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (_m *MockRepository) Delete(ctx context.Context, id uuid.UUID) ([]string, error) {
 	ret := _m.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Delete")
 	}
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) error); ok {
+	var r0 []string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) ([]string, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) []string); ok {
 		r0 = rf(ctx, id)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // MockRepository_Delete_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Delete'
@@ -120,12 +132,12 @@ func (_c *MockRepository_Delete_Call) Run(run func(ctx context.Context, id uuid.
 	return _c
 }
 
-func (_c *MockRepository_Delete_Call) Return(_a0 error) *MockRepository_Delete_Call {
-	_c.Call.Return(_a0)
+func (_c *MockRepository_Delete_Call) Return(_a0 []string, _a1 error) *MockRepository_Delete_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockRepository_Delete_Call) RunAndReturn(run func(context.Context, uuid.UUID) error) *MockRepository_Delete_Call {
+func (_c *MockRepository_Delete_Call) RunAndReturn(run func(context.Context, uuid.UUID) ([]string, error)) *MockRepository_Delete_Call {
 	_c.Call.Return(run)
 	return _c
 }

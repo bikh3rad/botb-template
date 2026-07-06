@@ -20,12 +20,13 @@ type errorInfo struct {
 }
 
 var errorsMap = map[error]errorInfo{
-	biz.ErrResourceNotFound:  {Message: "competition not found", Code: http.StatusNotFound},
-	biz.ErrResourceInvalid:   {Message: "invalid request", Code: http.StatusBadRequest},
-	biz.ErrResourceExists:    {Message: "resource already exists (slug/name must be unique)", Code: http.StatusConflict},
-	biz.ErrInvalidTransition: {Message: "invalid status transition", Code: http.StatusUnprocessableEntity},
-	biz.ErrCategoryInUse:     {Message: "category in use by competitions; pass reassign_to or move them first", Code: http.StatusConflict},
-	biz.ErrCategoryNotFound:  {Message: "category not found", Code: http.StatusNotFound},
+	biz.ErrResourceNotFound:       {Message: "competition not found", Code: http.StatusNotFound},
+	biz.ErrResourceInvalid:        {Message: "invalid request", Code: http.StatusBadRequest},
+	biz.ErrResourceExists:         {Message: "resource already exists (slug/name must be unique)", Code: http.StatusConflict},
+	biz.ErrInvalidTransition:      {Message: "invalid status transition", Code: http.StatusUnprocessableEntity},
+	biz.ErrCategoryInUse:          {Message: "category in use by competitions; pass reassign_to or move them first", Code: http.StatusConflict},
+	biz.ErrCategoryNotFound:       {Message: "category not found", Code: http.StatusNotFound},
+	biz.ErrCompetitionHasEntrants: {Message: "competition has sold tickets or draws; close it (status=closed) or void its draw instead of deleting", Code: http.StatusConflict},
 }
 
 // HandleError writes a JSON error response, mapping known sentinels to codes.

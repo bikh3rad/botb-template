@@ -74,6 +74,21 @@ func newRamsqlDB(t *testing.T) *datasource.PostgresDB {
 	)`)
 	require.NoError(t, err)
 
+	// tickets + draws let the delete-safety guard be exercised end to end.
+	_, err = db.ExecContext(ctx, `CREATE TABLE tickets (
+		id TEXT PRIMARY KEY,
+		competition_id TEXT,
+		user_id TEXT
+	)`)
+	require.NoError(t, err)
+
+	_, err = db.ExecContext(ctx, `CREATE TABLE draws (
+		id TEXT PRIMARY KEY,
+		competition_id TEXT,
+		status TEXT
+	)`)
+	require.NoError(t, err)
+
 	return &datasource.PostgresDB{DB: db}
 }
 
@@ -165,4 +180,78 @@ func TestRepo_List_StatusFilter(t *testing.T) {
 	require.Len(t, got, 1)
 	require.Equal(t, "live-one", got[0].Slug)
 	require.Len(t, got[0].Media, 1)
+}
+
+func seedTicket(t *testing.T, db *datasource.PostgresDB, competitionID uuid.UUID) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(),
+		`INSERT INTO tickets (id, competition_id, user_id) VALUES ($1, $2, $3)`,
+		uuid.NewString(), competitionID.String(), uuid.NewString())
+	require.NoError(t, err)
+}
+
+func seedDrawRow(t *testing.T, db *datasource.PostgresDB, competitionID uuid.UUID) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(),
+		`INSERT INTO draws (id, competition_id, status) VALUES ($1, $2, 'pending')`,
+		uuid.NewString(), competitionID.String())
+	require.NoError(t, err)
+}
+
+// A clean competition (no tickets, no draws) deletes, and its media object
+// keys come back for the object-storage purge; the media rows are gone.
+func TestRepo_Delete_CleanReturnsMediaKeys(t *testing.T) {
+	ctx := context.Background()
+	db := newRamsqlDB(t)
+	r := newRepo(db)
+
+	id := uuid.New()
+	seedCompetition(t, db, id, "deletable", "draft")
+	seedMedia(t, db, id, 0)
+	seedMedia(t, db, id, 1)
+
+	keys, err := r.Delete(ctx, id)
+	require.NoError(t, err)
+	require.Len(t, keys, 2)
+
+	// Competition + its media rows are gone.
+	_, err = r.Get(ctx, id)
+	require.ErrorIs(t, err, biz.ErrResourceNotFound)
+
+	var mediaLeft int
+	require.NoError(t, db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM media WHERE owner_id = $1`, id.String()).Scan(&mediaLeft))
+	require.Equal(t, 0, mediaLeft)
+}
+
+// A competition with sold tickets cannot be deleted.
+func TestRepo_Delete_BlockedByTickets(t *testing.T) {
+	ctx := context.Background()
+	db := newRamsqlDB(t)
+	r := newRepo(db)
+
+	id := uuid.New()
+	seedCompetition(t, db, id, "has-tickets", "live")
+	seedTicket(t, db, id)
+
+	_, err := r.Delete(ctx, id)
+	require.ErrorIs(t, err, biz.ErrCompetitionHasEntrants)
+
+	// Untouched.
+	_, err = r.Get(ctx, id)
+	require.NoError(t, err)
+}
+
+// A competition with an existing draw cannot be deleted.
+func TestRepo_Delete_BlockedByDraw(t *testing.T) {
+	ctx := context.Background()
+	db := newRamsqlDB(t)
+	r := newRepo(db)
+
+	id := uuid.New()
+	seedCompetition(t, db, id, "has-draw", "closed")
+	seedDrawRow(t, db, id)
+
+	_, err := r.Delete(ctx, id)
+	require.ErrorIs(t, err, biz.ErrCompetitionHasEntrants)
 }

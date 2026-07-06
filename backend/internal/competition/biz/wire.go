@@ -12,4 +12,7 @@ var ProviderSet = wire.NewSet(
 
 	NewContent,
 	wire.Bind(new(UsecaseContent), new(*content)),
+
+	NewAuditReader,
+	wire.Bind(new(UsecaseAudit), new(*auditReader)),
 )

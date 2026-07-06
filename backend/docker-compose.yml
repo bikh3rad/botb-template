@@ -74,8 +74,17 @@ services:
       dockerfile: Dockerfile
       args:
         SERVICE: competition
-    environment: *service-env
-    depends_on: *db-ready
+    # MinIO endpoint so a permitted competition delete can purge that
+    # competition's media objects (the media rows go in the same DB transaction).
+    environment:
+      <<: *service-env
+      APP_DATASOURCE_MINIO_ENDPOINT: minio:9000
+    depends_on:
+      <<: *db-ready
+      minio:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
 
   user:
     <<: *service-base

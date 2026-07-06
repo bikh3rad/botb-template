@@ -213,27 +213,123 @@ func (r *competition) Update(ctx context.Context, c entity.Competition) (entity.
 	return cs[0], nil
 }
 
-// Delete removes a competition, returning ErrResourceNotFound if absent.
-func (r *competition) Delete(ctx context.Context, id uuid.UUID) error {
+// Delete removes a competition only when it has no entrants (zero sold tickets
+// AND no draws), plus its media rows, all in one transaction. It returns the
+// deleted media object keys so the use case can purge them from object storage.
+// The guards live inside the transaction so a concurrent purchase/draw can't
+// slip a competition out from under a paying entrant.
+func (r *competition) Delete(ctx context.Context, id uuid.UUID) ([]string, error) {
 	logger := r.logger.With("method", "Delete")
 
-	result, err := r.db.ExecContext(ctx, `DELETE FROM competitions WHERE id = $1`, id)
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { _ = tx.Rollback() }()
+
+	// The competition must exist.
+	var soldOnRow int64
+	if err := tx.QueryRowContext(ctx,
+		`SELECT tickets_sold FROM competitions WHERE id = $1`, id).Scan(&soldOnRow); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, biz.ErrResourceNotFound
+		}
+
+		return nil, err
+	}
+
+	// Real tickets are authoritative (tickets_sold is a denormalized counter);
+	// block on either. A single draw referencing it also blocks the delete.
+	var ticketCount, drawCount int64
+	if err := tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM tickets WHERE competition_id = $1`, id).Scan(&ticketCount); err != nil {
+		return nil, err
+	}
+
+	if err := tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM draws WHERE competition_id = $1`, id).Scan(&drawCount); err != nil {
+		return nil, err
+	}
+
+	if soldOnRow > 0 || ticketCount > 0 || drawCount > 0 {
+		return nil, biz.ErrCompetitionHasEntrants
+	}
+
+	// Collect the media object keys, then delete the media rows and the
+	// competition. Media has no FK to competitions, so we remove its rows
+	// explicitly to avoid orphaned records.
+	objectKeys, err := deleteCompetitionMedia(ctx, tx, id)
+	if err != nil {
+		logger.WarnContext(ctx, "failed to delete competition media rows", "error", err)
+
+		return nil, err
+	}
+
+	result, err := tx.ExecContext(ctx, `DELETE FROM competitions WHERE id = $1`, id)
 	if err != nil {
 		logger.WarnContext(ctx, "failed to delete competition", "error", err)
 
-		return err
+		return nil, err
 	}
 
 	affected, err := result.RowsAffected()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if affected == 0 {
-		return biz.ErrResourceNotFound
+		return nil, biz.ErrResourceNotFound
 	}
 
-	return nil
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return objectKeys, nil
+}
+
+// deleteCompetitionMedia removes a competition's media rows within tx and
+// returns their object keys for downstream object-storage purge. The SELECT is
+// fully drained + closed (in mediaObjectKeys) before the DELETE runs, so the
+// single transaction connection is never busy across statements.
+func deleteCompetitionMedia(ctx context.Context, tx *sql.Tx, id uuid.UUID) ([]string, error) {
+	objectKeys, err := mediaObjectKeys(ctx, tx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM media WHERE owner_type = 'competition' AND owner_id = $1`, id); err != nil {
+		return nil, err
+	}
+
+	return objectKeys, nil
+}
+
+// mediaObjectKeys returns the object keys of a competition's media rows. It
+// fully drains + closes the result set (defer) so the caller can run further
+// statements on the same transaction.
+func mediaObjectKeys(ctx context.Context, tx *sql.Tx, id uuid.UUID) ([]string, error) {
+	rows, err := tx.QueryContext(ctx,
+		`SELECT object_key FROM media WHERE owner_type = 'competition' AND owner_id = $1`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var objectKeys []string
+
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+
+		objectKeys = append(objectKeys, key)
+	}
+
+	return objectKeys, rows.Err()
 }
 
 // mediaByOwner reads the shared `media` table for this competition's media.

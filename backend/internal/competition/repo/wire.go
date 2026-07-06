@@ -17,4 +17,7 @@ var ProviderSet = wire.NewSet(
 
 	NewContent,
 	wire.Bind(new(biz.RepositoryContent), new(*content)),
+
+	NewAuditRepo,
+	wire.Bind(new(biz.RepositoryAudit), new(*auditRepo)),
 )
