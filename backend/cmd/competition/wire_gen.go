@@ -70,7 +70,15 @@ func wireApp(ctx context.Context) (app.Application, error) {
 		return nil, err
 	}
 	competition := repo.NewCompetition(logger, postgresDB)
-	bizCompetition := biz2.NewCompetition(logger, competition)
+	minioConfig, err := datasource.NewMinioConfig(ctx, kConfig)
+	if err != nil {
+		return nil, err
+	}
+	minioStorage, err := datasource.NewMinioStorage(ctx, logger, controller, minioConfig)
+	if err != nil {
+		return nil, err
+	}
+	bizCompetition := biz2.NewCompetition(logger, competition, minioStorage)
 	jwtSecret, err := middlewares.NewJWTSecret(kConfig)
 	if err != nil {
 		return nil, err
@@ -84,7 +92,10 @@ func wireApp(ctx context.Context) (app.Application, error) {
 	content := repo.NewContent(logger, postgresDB)
 	bizContent := biz2.NewContent(logger, content)
 	handlerContent := handler2.NewContentHandler(logger, serveMux, bizContent, jwtAuth, recorder)
-	v := handler2.NewServiceList(healthzHandler, handlerCompetition, handlerCategory, handlerContent)
+	auditRepo := repo.NewAuditRepo(logger, postgresDB)
+	bizAudit := biz2.NewAuditReader(logger, auditRepo)
+	handlerAudit := handler2.NewAuditHandler(logger, serveMux, bizAudit, jwtAuth)
+	v := handler2.NewServiceList(healthzHandler, handlerCompetition, handlerCategory, handlerContent, handlerAudit)
 	httpHandler, err := service.NewHTTPHandler(ctx, logger, serveMux, v...)
 	if err != nil {
 		return nil, err

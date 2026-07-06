@@ -6,6 +6,8 @@
 package main
 
 import (
+	"context"
+
 	"application/app"
 	flatbiz "application/internal/biz"
 	compbiz "application/internal/competition/biz"
@@ -15,15 +17,16 @@ import (
 	"application/internal/service"
 	svchandler "application/internal/service/handler"
 	"application/pkg/middlewares"
-	"context"
 
 	"github.com/google/wire"
 )
 
 // wireApp is the composition root for the competition service binary. It reuses
 // the shared app + HTTP infrastructure and Postgres datasource, adds the shared
-// healthz endpoints, and the competition domain stack. No object storage is
-// needed here — media is resolved via a read query against the shared database.
+// healthz endpoints, and the competition domain stack. It also wires the MinIO
+// object-storage client so a permitted competition delete can purge that
+// competition's media objects (the media rows are cleaned up in the same DB
+// transaction; the objects are removed via this port).
 func wireApp(
 	ctx context.Context,
 ) (app.Application, error) {
@@ -32,6 +35,7 @@ func wireApp(
 		service.ServerProviderSet,
 
 		datasource.PostgresProviderSet,
+		datasource.MinioProviderSet,
 
 		// Shared healthz endpoints.
 		flatbiz.HealthzProviderSet,
@@ -44,5 +48,8 @@ func wireApp(
 		compbiz.ProviderSet,
 		comprepo.ProviderSet,
 		comphandler.ProviderSet,
+
+		// The competition delete path purges media objects via MinIO.
+		wire.Bind(new(compbiz.ObjectStorage), new(*datasource.MinioStorage)),
 	))
 }

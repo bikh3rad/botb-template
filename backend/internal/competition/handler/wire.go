@@ -17,6 +17,7 @@ var ProviderSet = wire.NewSet(
 	NewCompetition,
 	NewCategoryHandler,
 	NewContentHandler,
+	NewAuditHandler,
 	NewAuditRecorder,
 	NewServiceList,
 )
@@ -28,11 +29,12 @@ func NewAuditRecorder(logger *slog.Logger, db *datasource.PostgresDB) *audit.Rec
 
 // NewServiceList assembles the []service.Handler served by the competition
 // binary: shared healthz plus the competition, category and content handlers.
-func NewServiceList(healthz *svchandler.HealthzHandler, c *competition, cat *category, sc *content) []service.Handler {
+func NewServiceList(healthz *svchandler.HealthzHandler, c *competition, cat *category, sc *content, au *auditHandler) []service.Handler {
 	return []service.Handler{
 		healthz,
 		c,
 		cat,
 		sc,
+		au,
 	}
 }

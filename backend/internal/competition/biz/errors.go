@@ -17,4 +17,7 @@ var (
 	ErrCategoryInUse = errors.New("category in use")
 	// ErrCategoryNotFound is returned when a referenced category does not exist.
 	ErrCategoryNotFound = errors.New("category not found")
+	// ErrCompetitionHasEntrants is returned when deleting a competition that has
+	// sold tickets or an existing draw — it must be closed or voided instead.
+	ErrCompetitionHasEntrants = errors.New("competition has sold tickets or draws; close or void instead")
 )

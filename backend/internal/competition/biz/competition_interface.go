@@ -62,5 +62,9 @@ type Repository interface {
 	Get(ctx context.Context, id uuid.UUID) (entity.Competition, error)
 	Create(ctx context.Context, c entity.Competition) (entity.Competition, error)
 	Update(ctx context.Context, c entity.Competition) (entity.Competition, error)
-	Delete(ctx context.Context, id uuid.UUID) error
+	// Delete enforces the no-entrants rule (ErrCompetitionHasEntrants when the
+	// competition has sold tickets or any draw), removes the competition and its
+	// media rows in one transaction, and returns the removed media object keys
+	// so the caller can purge them from object storage.
+	Delete(ctx context.Context, id uuid.UUID) ([]string, error)
 }

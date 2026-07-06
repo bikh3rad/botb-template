@@ -18,20 +18,29 @@ var (
 	validSlug    = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 )
 
+// ObjectStorage is the subset of the S3/MinIO port the competition service
+// needs to purge a deleted competition's media objects. Satisfied by
+// datasource.MinioStorage (the same client the media service uses).
+type ObjectStorage interface {
+	Remove(ctx context.Context, key string) error
+}
+
 type competition struct {
-	logger *slog.Logger
-	tracer trace.Tracer
-	repo   Repository
+	logger  *slog.Logger
+	tracer  trace.Tracer
+	repo    Repository
+	storage ObjectStorage
 }
 
 var _ UsecaseCompetition = (*competition)(nil)
 
 // NewCompetition constructs the competition use case.
-func NewCompetition(logger *slog.Logger, repo Repository) *competition {
+func NewCompetition(logger *slog.Logger, repo Repository, storage ObjectStorage) *competition {
 	return &competition{
-		logger: logger.With("layer", "Competition"),
-		tracer: otel.Tracer("CompetitionUseCase"),
-		repo:   repo,
+		logger:  logger.With("layer", "Competition"),
+		tracer:  otel.Tracer("CompetitionUseCase"),
+		repo:    repo,
+		storage: storage,
 	}
 }
 
@@ -161,8 +170,36 @@ func transitionAllowed(from, to entity.Status) bool {
 	}
 }
 
+// Delete removes a competition ONLY when it has no entrants — zero sold tickets
+// AND no draws. Entrants have paid and draws reference the competition, so a
+// live/played competition must be CLOSED or its draw VOIDED instead
+// (ErrCompetitionHasEntrants -> 409). On a permitted delete the repo also
+// removes the competition's media rows in the same transaction and returns
+// their object keys, which we then purge from object storage (DB-first, like
+// the media service's own delete ordering).
 func (uc *competition) Delete(ctx context.Context, id uuid.UUID) error {
-	return uc.repo.Delete(ctx, id)
+	ctx, span := uc.tracer.Start(ctx, "Delete")
+	defer span.End()
+
+	objectKeys, err := uc.repo.Delete(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// Best-effort object purge: the DB rows are already gone, so a failed
+	// removal is a logged storage leak, never a dangling record.
+	for _, key := range objectKeys {
+		if uc.storage == nil {
+			break
+		}
+
+		if rmErr := uc.storage.Remove(ctx, key); rmErr != nil {
+			uc.logger.WarnContext(ctx, "competition media object removal failed (orphaned in storage)",
+				"object_key", key, "error", rmErr)
+		}
+	}
+
+	return nil
 }
 
 func validateCreate(in CreateInput) error {

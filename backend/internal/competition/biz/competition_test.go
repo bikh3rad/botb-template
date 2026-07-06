@@ -31,7 +31,7 @@ func TestCreate_GeneratesSlug(t *testing.T) {
 			return c, nil
 		})
 
-	uc := biz.NewCompetition(discardLogger(), repo)
+	uc := biz.NewCompetition(discardLogger(), repo, nil)
 
 	got, err := uc.Create(context.Background(), biz.CreateInput{
 		Title:        "Win an Audi RS3",
@@ -47,7 +47,7 @@ func TestCreate_GeneratesSlug(t *testing.T) {
 
 func TestCreate_InvalidInput(t *testing.T) {
 	repo := mocks.NewMockRepository(t)
-	uc := biz.NewCompetition(discardLogger(), repo)
+	uc := biz.NewCompetition(discardLogger(), repo, nil)
 
 	cases := []biz.CreateInput{
 		{Title: "", Prize: "x", TicketsTotal: 10}, // no title
@@ -64,7 +64,7 @@ func TestCreate_InvalidInput(t *testing.T) {
 
 func TestList_InvalidStatusFilter(t *testing.T) {
 	repo := mocks.NewMockRepository(t)
-	uc := biz.NewCompetition(discardLogger(), repo)
+	uc := biz.NewCompetition(discardLogger(), repo, nil)
 
 	bogus := entity.Status("bogus")
 	_, err := uc.List(context.Background(), biz.ListFilter{Status: &bogus})
@@ -77,7 +77,7 @@ func TestList_PassesFilterThrough(t *testing.T) {
 	repo.EXPECT().List(mock.Anything, biz.ListFilter{Status: &live}).
 		Return([]entity.Competition{{Title: "A"}}, nil)
 
-	uc := biz.NewCompetition(discardLogger(), repo)
+	uc := biz.NewCompetition(discardLogger(), repo, nil)
 
 	got, err := uc.List(context.Background(), biz.ListFilter{Status: &live})
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func TestList_PassesFilterThrough(t *testing.T) {
 
 func TestUpdate_InvalidStatus(t *testing.T) {
 	repo := mocks.NewMockRepository(t)
-	uc := biz.NewCompetition(discardLogger(), repo)
+	uc := biz.NewCompetition(discardLogger(), repo, nil)
 
 	_, err := uc.Update(context.Background(), uuid.New(), biz.UpdateInput{Title: "x", Status: "nope"})
 	require.ErrorIs(t, err, biz.ErrResourceInvalid)
@@ -116,7 +116,7 @@ func TestUpdate_Success_AllFields(t *testing.T) {
 			c.CategoryID != nil && *c.CategoryID == catID
 	})).Return(entity.Competition{ID: id, Title: "New Title", Status: entity.StatusLive}, nil)
 
-	uc := biz.NewCompetition(discardLogger(), repo)
+	uc := biz.NewCompetition(discardLogger(), repo, nil)
 
 	in := fullUpdate(entity.StatusLive)
 	in.CategoryID = &catID
@@ -155,7 +155,7 @@ func TestUpdate_StatusTransitions(t *testing.T) {
 				Return(entity.Competition{ID: id, Status: tc.to}, nil)
 		}
 
-		uc := biz.NewCompetition(discardLogger(), repo)
+		uc := biz.NewCompetition(discardLogger(), repo, nil)
 
 		_, err := uc.Update(context.Background(), id, fullUpdate(tc.to))
 		if tc.ok {
@@ -174,7 +174,7 @@ func TestUpdate_TotalBelowSoldRejected(t *testing.T) {
 		ID: id, Status: entity.StatusLive, TicketsSold: 5000,
 	}, nil)
 
-	uc := biz.NewCompetition(discardLogger(), repo)
+	uc := biz.NewCompetition(discardLogger(), repo, nil)
 
 	_, err := uc.Update(context.Background(), id, fullUpdate(entity.StatusLive))
 	require.ErrorIs(t, err, biz.ErrResourceInvalid)
@@ -182,7 +182,7 @@ func TestUpdate_TotalBelowSoldRejected(t *testing.T) {
 
 func TestUpdate_BadSlugRejected(t *testing.T) {
 	repo := mocks.NewMockRepository(t)
-	uc := biz.NewCompetition(discardLogger(), repo)
+	uc := biz.NewCompetition(discardLogger(), repo, nil)
 
 	in := fullUpdate(entity.StatusLive)
 	in.Slug = "Not A Slug!"
@@ -194,8 +194,8 @@ func TestUpdate_BadSlugRejected(t *testing.T) {
 func TestDelete(t *testing.T) {
 	id := uuid.New()
 	repo := mocks.NewMockRepository(t)
-	repo.EXPECT().Delete(mock.Anything, id).Return(nil)
+	repo.EXPECT().Delete(mock.Anything, id).Return(nil, nil)
 
-	uc := biz.NewCompetition(discardLogger(), repo)
+	uc := biz.NewCompetition(discardLogger(), repo, nil)
 	require.NoError(t, uc.Delete(context.Background(), id))
 }

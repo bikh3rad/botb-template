@@ -7,9 +7,20 @@ import { Bell, Menu, Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { adminNav } from "@/lib/admin-data"
 import { AdminSidebar } from "@/components/admin/AdminSidebar"
 import { useAdminAuth } from "@/lib/admin/auth-context"
+
+/** Page titles keyed by route prefix (longest match wins). */
+const PAGE_TITLES: { href: string; label: string }[] = [
+  { href: "/admin/competitions", label: "Competitions" },
+  { href: "/admin/categories", label: "Categories" },
+  { href: "/admin/users", label: "Users & Tickets" },
+  { href: "/admin/winners", label: "Winners & Draws" },
+  { href: "/admin/media", label: "Media Library" },
+  { href: "/admin/texts", label: "Site Texts" },
+  { href: "/admin/accounts", label: "Admin Accounts" },
+  { href: "/admin", label: "Dashboard" },
+]
 
 /** Two-letter initials from a name, e.g. "Ada Lovelace" -> "AL". */
 function initials(name: string | undefined): string {
@@ -22,7 +33,7 @@ function initials(name: string | undefined): string {
 
 function usePageTitle(): string {
   const pathname = usePathname()
-  const match = [...adminNav]
+  const match = [...PAGE_TITLES]
     .sort((a, b) => b.href.length - a.href.length)
     .find((item) =>
       item.href === "/admin"
