@@ -185,9 +185,16 @@ func TestDrawDoubleRunConflict(t *testing.T) {
 	run2, run2Body := request(t, http.MethodPost, "/apis/draw/v1/admin/draws/"+d.ID+"/run", token, nil)
 	requireStatus(t, run2, run2Body, http.StatusConflict)
 
-	// Clean up: void the draw so the closed comp carries no live winner leak.
+	// Clean up so this test leaves the seeded live count unchanged: void the
+	// draw and close the competition (it has an entrant, so it can't be
+	// deleted — closing removes it from the live grid, which is the point).
 	_, _ = request(t, http.MethodPost, "/apis/draw/v1/admin/draws/"+d.ID+"/void", token,
 		map[string]any{"reason": "double-run test cleanup"})
+	_, _ = request(t, http.MethodPut, "/apis/competition/v1/admin/competitions/"+comp.ID, token,
+		map[string]any{
+			"title": "Double Run", "slug": slug, "prize": "P",
+			"ticket_price_pence": 100, "tickets_total": 10, "status": "closed",
+		})
 }
 
 // TestSiteContentReflectsPublicly: an admin content edit is visible on the
