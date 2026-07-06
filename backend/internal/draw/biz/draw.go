@@ -160,3 +160,16 @@ func (uc *draw) Reassign(ctx context.Context, id uuid.UUID, ticketID uuid.UUID, 
 
 	return uc.repo.Reassign(ctx, id, ticketID)
 }
+
+// ListWinners returns the public winners feed (drawn draws only).
+func (uc *draw) ListWinners(ctx context.Context, limit int) ([]entity.WinnerItem, error) {
+	if limit <= 0 {
+		limit = defaultPageSize
+	}
+
+	if limit > maxPageSize {
+		limit = maxPageSize
+	}
+
+	return uc.repo.ListWinners(ctx, limit)
+}

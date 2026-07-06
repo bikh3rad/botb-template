@@ -283,6 +283,80 @@ func randomIndex(n int) (int, error) {
 	return int(idx.Int64()), nil
 }
 
+// ListWinners returns drawn draws newest-first with the winner's display
+// name. Two queries instead of a JOIN keep it ramsql-testable; the name
+// lookup is one query per distinct winner over a small page.
+func (r *draw) ListWinners(ctx context.Context, limit int) ([]entity.WinnerItem, error) {
+	logger := r.logger.With("method", "ListWinners")
+
+	query := `SELECT id, prize, drawn_at, winner_user_id FROM draws
+		WHERE status = $1
+		ORDER BY drawn_at DESC LIMIT ` + strconv.Itoa(limit)
+
+	rows, err := r.db.QueryContext(ctx, query, string(entity.StatusDrawn))
+	if err != nil {
+		logger.WarnContext(ctx, "failed to query winners", "error", err)
+
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := []entity.WinnerItem{}
+
+	for rows.Next() {
+		var (
+			item    entity.WinnerItem
+			drawnAt sql.NullTime
+			winner  uuid.NullUUID
+		)
+
+		if err := rows.Scan(&item.DrawID, &item.Prize, &drawnAt, &winner); err != nil {
+			logger.WarnContext(ctx, "failed to scan winner row", "error", err)
+
+			continue
+		}
+
+		if !winner.Valid {
+			continue
+		}
+
+		item.WinnerUserID = winner.UUID
+
+		if drawnAt.Valid {
+			at := drawnAt.Time
+			item.DrawnAt = &at
+		}
+
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	names := map[uuid.UUID]string{}
+
+	for i := range items {
+		id := items[i].WinnerUserID
+		if name, ok := names[id]; ok {
+			items[i].WinnerName = name
+
+			continue
+		}
+
+		var name string
+		if err := r.db.QueryRowContext(ctx,
+			`SELECT name FROM users WHERE id = $1`, id).Scan(&name); err != nil {
+			name = "Winner"
+		}
+
+		names[id] = name
+		items[i].WinnerName = name
+	}
+
+	return items, nil
+}
+
 // UpdatePrize edits the prize text (UPDATE-then-SELECT, no RETURNING, for
 // ramsql compatibility).
 func (r *draw) UpdatePrize(ctx context.Context, id uuid.UUID, prize string) (entity.Draw, error) {

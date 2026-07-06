@@ -46,6 +46,9 @@ type UsecaseDraw interface {
 	// same competition. Requires a reason; exists so the mutation is explicit
 	// and audited rather than a hand-edited row.
 	Reassign(ctx context.Context, id uuid.UUID, ticketID uuid.UUID, reason string) (entity.Draw, error)
+	// ListWinners is the PUBLIC winners feed: drawn draws joined to winner
+	// names, newest first.
+	ListWinners(ctx context.Context, limit int) ([]entity.WinnerItem, error)
 }
 
 // Repository persists draws and runs the winner-selection transaction.
@@ -64,4 +67,5 @@ type Repository interface {
 	// Reassign validates (inside a transaction) that the ticket belongs to the
 	// draw's competition and swaps winner_ticket_id/winner_user_id.
 	Reassign(ctx context.Context, id uuid.UUID, ticketID uuid.UUID) (entity.Draw, error)
+	ListWinners(ctx context.Context, limit int) ([]entity.WinnerItem, error)
 }

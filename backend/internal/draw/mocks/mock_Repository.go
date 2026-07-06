@@ -197,6 +197,65 @@ func (_c *MockRepository_List_Call) RunAndReturn(run func(context.Context, biz.L
 	return _c
 }
 
+// ListWinners provides a mock function with given fields: ctx, limit
+func (_m *MockRepository) ListWinners(ctx context.Context, limit int) ([]entity.WinnerItem, error) {
+	ret := _m.Called(ctx, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListWinners")
+	}
+
+	var r0 []entity.WinnerItem
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int) ([]entity.WinnerItem, error)); ok {
+		return rf(ctx, limit)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int) []entity.WinnerItem); ok {
+		r0 = rf(ctx, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]entity.WinnerItem)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_ListWinners_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListWinners'
+type MockRepository_ListWinners_Call struct {
+	*mock.Call
+}
+
+// ListWinners is a helper method to define mock.On call
+//   - ctx context.Context
+//   - limit int
+func (_e *MockRepository_Expecter) ListWinners(ctx interface{}, limit interface{}) *MockRepository_ListWinners_Call {
+	return &MockRepository_ListWinners_Call{Call: _e.mock.On("ListWinners", ctx, limit)}
+}
+
+func (_c *MockRepository_ListWinners_Call) Run(run func(ctx context.Context, limit int)) *MockRepository_ListWinners_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int))
+	})
+	return _c
+}
+
+func (_c *MockRepository_ListWinners_Call) Return(_a0 []entity.WinnerItem, _a1 error) *MockRepository_ListWinners_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_ListWinners_Call) RunAndReturn(run func(context.Context, int) ([]entity.WinnerItem, error)) *MockRepository_ListWinners_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Reassign provides a mock function with given fields: ctx, id, ticketID
 func (_m *MockRepository) Reassign(ctx context.Context, id uuid.UUID, ticketID uuid.UUID) (entity.Draw, error) {
 	ret := _m.Called(ctx, id, ticketID)

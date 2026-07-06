@@ -68,6 +68,7 @@ func (h *draw) RegisterHandler(_ context.Context) error {
 	h.mux.HandleFunc("POST /apis/draw/v1/admin/draws/{id}/reassign", admin(h.reassign))
 	// Public.
 	h.mux.HandleFunc("GET /apis/draw/v1/draws/{id}", h.getPublic)
+	h.mux.HandleFunc("GET /apis/draw/v1/winners", h.winners)
 
 	return nil
 }
@@ -424,6 +425,33 @@ func (h *draw) reassign(w http.ResponseWriter, r *http.Request) {
 	})
 
 	writeJSON(ctx, w, http.StatusOK, dto.ToDrawResp(d), logger)
+}
+
+// winners returns the public winners feed (drawn draws + winner names).
+//
+//	@Summary		Public winners feed
+//	@Description	Drawn draws joined to winner names, newest first. Public — the site's winners ticker reads this (no admin token needed).
+//	@Tags			Draws
+//	@Produce		json
+//	@Param			limit	query		int	false	"Max rows (default 20, max 100)"
+//	@Success		200		{object}	dto.WinnerListResp
+//	@Failure		500		{object}	dto.ErrorResponse	"Internal Server Error"
+//	@Router			/apis/draw/v1/winners [get]
+func (h *draw) winners(w http.ResponseWriter, r *http.Request) {
+	logger := h.logger.With("method", "Winners")
+	ctx := r.Context()
+
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+
+	items, err := h.uc.ListWinners(ctx, limit)
+	if err != nil {
+		logger.ErrorContext(ctx, "winners failed", "error", err)
+		dto.HandleError(err, w)
+
+		return
+	}
+
+	writeJSON(ctx, w, http.StatusOK, dto.ToWinnerListResp(items), logger)
 }
 
 func writeJSON(ctx context.Context, w http.ResponseWriter, status int, body any, logger *slog.Logger) {

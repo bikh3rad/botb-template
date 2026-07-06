@@ -105,3 +105,40 @@ func formatTime(t time.Time) string {
 
 	return t.UTC().Format(rfc3339)
 }
+
+// WinnerResp is one public winners-feed row.
+type WinnerResp struct {
+	DrawID       string `json:"draw_id"`
+	Prize        string `json:"prize"`
+	DrawnAt      string `json:"drawn_at,omitempty"`
+	WinnerUserID string `json:"winner_user_id"`
+	WinnerName   string `json:"winner_name"`
+}
+
+// WinnerListResp is the public winners-feed envelope.
+type WinnerListResp struct {
+	Count   int          `json:"count"`
+	Winners []WinnerResp `json:"winners"`
+}
+
+// ToWinnerListResp maps winner items to the envelope.
+func ToWinnerListResp(items []entity.WinnerItem) WinnerListResp {
+	out := make([]WinnerResp, 0, len(items))
+
+	for _, item := range items {
+		w := WinnerResp{
+			DrawID:       item.DrawID.String(),
+			Prize:        item.Prize,
+			WinnerUserID: item.WinnerUserID.String(),
+			WinnerName:   item.WinnerName,
+		}
+
+		if item.DrawnAt != nil {
+			w.DrawnAt = formatTime(*item.DrawnAt)
+		}
+
+		out = append(out, w)
+	}
+
+	return WinnerListResp{Count: len(out), Winners: out}
+}

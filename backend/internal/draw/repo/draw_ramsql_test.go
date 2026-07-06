@@ -178,3 +178,36 @@ func TestRepo_VoidAndReassign(t *testing.T) {
 	_, err = r.Reassign(ctx, drawID, ticketID)
 	require.ErrorIs(t, err, biz.ErrInvalidState)
 }
+
+func TestRepo_ListWinners_Public(t *testing.T) {
+	ctx := context.Background()
+	db := newRamsqlDB(t)
+	r := newRepo(db)
+
+	_, err := db.ExecContext(ctx, `CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)`)
+	require.NoError(t, err)
+
+	winnerID := uuid.New()
+	_, err = db.ExecContext(ctx, `INSERT INTO users (id, name) VALUES ($1, $2)`,
+		winnerID.String(), "Sam H")
+	require.NoError(t, err)
+
+	compID := uuid.New()
+	drawnID := uuid.New()
+	now := time.Now().UTC()
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO draws (id, competition_id, winner_user_id, winner_ticket_id, prize, status, void_reason, drawn_at, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		drawnID.String(), compID.String(), winnerID.String(), uuid.NewString(), "Audi RS3", "drawn", "", now, now, now)
+	require.NoError(t, err)
+
+	// pending + void rows must not appear.
+	seedDraw(t, db, uuid.New(), compID, "Pending prize", "pending")
+	seedDraw(t, db, uuid.New(), compID, "Void prize", "void")
+
+	winners, err := r.ListWinners(ctx, 10)
+	require.NoError(t, err)
+	require.Len(t, winners, 1)
+	require.Equal(t, "Sam H", winners[0].WinnerName)
+	require.Equal(t, "Audi RS3", winners[0].Prize)
+}
