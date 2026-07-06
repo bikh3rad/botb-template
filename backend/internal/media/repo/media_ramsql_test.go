@@ -1,15 +1,16 @@
 package repo_test
 
 import (
-	"application/internal/datasource"
-	"application/internal/media/biz"
-	"application/internal/media/entity"
-	"application/internal/media/repo"
 	"context"
 	"database/sql"
 	"io"
 	"log/slog"
 	"testing"
+
+	"application/internal/datasource"
+	"application/internal/media/biz"
+	"application/internal/media/entity"
+	"application/internal/media/repo"
 
 	"github.com/google/uuid"
 	_ "github.com/proullon/ramsql/driver"
@@ -51,7 +52,8 @@ func newRamsqlDB(t *testing.T) *datasource.PostgresDB {
 func seedMedia(t *testing.T, db *datasource.PostgresDB, m entity.Media) {
 	t.Helper()
 
-	_, err := db.ExecContext(context.Background(), `INSERT INTO media
+	_, err := db.ExecContext(
+		context.Background(), `INSERT INTO media
 		(id, owner_type, owner_id, kind, bucket, object_key, content_type,
 		 size_bytes, width, height, duration_seconds, position, created_at)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, NOW())`,

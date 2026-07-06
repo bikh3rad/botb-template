@@ -1,11 +1,12 @@
 package biz
 
 import (
-	"application/internal/media/entity"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+
+	"application/internal/media/entity"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
@@ -125,6 +126,79 @@ func (uc *media) Get(ctx context.Context, id uuid.UUID) (MediaWithURL, error) {
 	}
 
 	return MediaWithURL{Media: m, URL: url}, nil
+}
+
+const (
+	defaultPageSize = 50
+	maxPageSize     = 200
+)
+
+// ListAll returns a paged global media listing (admin media library).
+func (uc *media) ListAll(ctx context.Context, limit, offset int) (MediaPage, error) {
+	if limit <= 0 {
+		limit = defaultPageSize
+	}
+
+	if limit > maxPageSize {
+		limit = maxPageSize
+	}
+
+	if offset < 0 {
+		offset = 0
+	}
+
+	return uc.repo.ListAll(ctx, limit, offset)
+}
+
+// Delete removes the media record AND its MinIO object. Ordering is
+// deliberate: the DB row is deleted FIRST, then the object best-effort. A
+// failed object removal leaves only an invisible storage leak (logged loudly,
+// reconcilable later); the reverse order could leave a dangling DB row
+// pointing at a deleted object, which breaks the UI. A missing object is
+// treated as success (idempotent delete).
+func (uc *media) Delete(ctx context.Context, id uuid.UUID) error {
+	logger := uc.logger.With("method", "Delete")
+
+	ctx, span := uc.tracer.Start(ctx, "Delete")
+	defer span.End()
+
+	m, err := uc.repo.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if err := uc.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	if err := uc.storage.Remove(ctx, m.ObjectKey); err != nil {
+		logger.ErrorContext(ctx, "DB row deleted but object removal failed — orphaned object in storage",
+			"object_key", m.ObjectKey, "error", err)
+	}
+
+	return nil
+}
+
+// Update reorders (position) and/or reassigns ownership. Owner reassignment
+// is a single UPDATE so it is offered alongside reorder.
+func (uc *media) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (entity.Media, error) {
+	ctx, span := uc.tracer.Start(ctx, "Update")
+	defer span.End()
+
+	if in.Position == nil && in.OwnerType == "" && in.OwnerID == nil {
+		return entity.Media{}, ErrResourceInvalid
+	}
+
+	if in.Position != nil && *in.Position < 0 {
+		return entity.Media{}, ErrResourceInvalid
+	}
+
+	// Owner reassignment needs both halves of the owner reference.
+	if (in.OwnerType != "") != (in.OwnerID != nil) {
+		return entity.Media{}, ErrResourceInvalid
+	}
+
+	return uc.repo.Update(ctx, id, in)
 }
 
 // ListByOwner returns all media for an owner object, ordered by position.

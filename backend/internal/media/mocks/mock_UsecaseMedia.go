@@ -26,6 +26,53 @@ func (_m *MockUsecaseMedia) EXPECT() *MockUsecaseMedia_Expecter {
 	return &MockUsecaseMedia_Expecter{mock: &_m.Mock}
 }
 
+// Delete provides a mock function with given fields: ctx, id
+func (_m *MockUsecaseMedia) Delete(ctx context.Context, id uuid.UUID) error {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Delete")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) error); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockUsecaseMedia_Delete_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Delete'
+type MockUsecaseMedia_Delete_Call struct {
+	*mock.Call
+}
+
+// Delete is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+func (_e *MockUsecaseMedia_Expecter) Delete(ctx interface{}, id interface{}) *MockUsecaseMedia_Delete_Call {
+	return &MockUsecaseMedia_Delete_Call{Call: _e.mock.On("Delete", ctx, id)}
+}
+
+func (_c *MockUsecaseMedia_Delete_Call) Run(run func(ctx context.Context, id uuid.UUID)) *MockUsecaseMedia_Delete_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID))
+	})
+	return _c
+}
+
+func (_c *MockUsecaseMedia_Delete_Call) Return(_a0 error) *MockUsecaseMedia_Delete_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockUsecaseMedia_Delete_Call) RunAndReturn(run func(context.Context, uuid.UUID) error) *MockUsecaseMedia_Delete_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Get provides a mock function with given fields: ctx, id
 func (_m *MockUsecaseMedia) Get(ctx context.Context, id uuid.UUID) (biz.MediaWithURL, error) {
 	ret := _m.Called(ctx, id)
@@ -79,6 +126,64 @@ func (_c *MockUsecaseMedia_Get_Call) Return(_a0 biz.MediaWithURL, _a1 error) *Mo
 }
 
 func (_c *MockUsecaseMedia_Get_Call) RunAndReturn(run func(context.Context, uuid.UUID) (biz.MediaWithURL, error)) *MockUsecaseMedia_Get_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListAll provides a mock function with given fields: ctx, limit, offset
+func (_m *MockUsecaseMedia) ListAll(ctx context.Context, limit int, offset int) (biz.MediaPage, error) {
+	ret := _m.Called(ctx, limit, offset)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListAll")
+	}
+
+	var r0 biz.MediaPage
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, int) (biz.MediaPage, error)); ok {
+		return rf(ctx, limit, offset)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int, int) biz.MediaPage); ok {
+		r0 = rf(ctx, limit, offset)
+	} else {
+		r0 = ret.Get(0).(biz.MediaPage)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int, int) error); ok {
+		r1 = rf(ctx, limit, offset)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockUsecaseMedia_ListAll_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListAll'
+type MockUsecaseMedia_ListAll_Call struct {
+	*mock.Call
+}
+
+// ListAll is a helper method to define mock.On call
+//   - ctx context.Context
+//   - limit int
+//   - offset int
+func (_e *MockUsecaseMedia_Expecter) ListAll(ctx interface{}, limit interface{}, offset interface{}) *MockUsecaseMedia_ListAll_Call {
+	return &MockUsecaseMedia_ListAll_Call{Call: _e.mock.On("ListAll", ctx, limit, offset)}
+}
+
+func (_c *MockUsecaseMedia_ListAll_Call) Run(run func(ctx context.Context, limit int, offset int)) *MockUsecaseMedia_ListAll_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *MockUsecaseMedia_ListAll_Call) Return(_a0 biz.MediaPage, _a1 error) *MockUsecaseMedia_ListAll_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockUsecaseMedia_ListAll_Call) RunAndReturn(run func(context.Context, int, int) (biz.MediaPage, error)) *MockUsecaseMedia_ListAll_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -139,6 +244,64 @@ func (_c *MockUsecaseMedia_ListByOwner_Call) Return(_a0 []entity.Media, _a1 erro
 }
 
 func (_c *MockUsecaseMedia_ListByOwner_Call) RunAndReturn(run func(context.Context, string, uuid.UUID) ([]entity.Media, error)) *MockUsecaseMedia_ListByOwner_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Update provides a mock function with given fields: ctx, id, in
+func (_m *MockUsecaseMedia) Update(ctx context.Context, id uuid.UUID, in biz.UpdateInput) (entity.Media, error) {
+	ret := _m.Called(ctx, id, in)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Update")
+	}
+
+	var r0 entity.Media
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, biz.UpdateInput) (entity.Media, error)); ok {
+		return rf(ctx, id, in)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, biz.UpdateInput) entity.Media); ok {
+		r0 = rf(ctx, id, in)
+	} else {
+		r0 = ret.Get(0).(entity.Media)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, biz.UpdateInput) error); ok {
+		r1 = rf(ctx, id, in)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockUsecaseMedia_Update_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Update'
+type MockUsecaseMedia_Update_Call struct {
+	*mock.Call
+}
+
+// Update is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+//   - in biz.UpdateInput
+func (_e *MockUsecaseMedia_Expecter) Update(ctx interface{}, id interface{}, in interface{}) *MockUsecaseMedia_Update_Call {
+	return &MockUsecaseMedia_Update_Call{Call: _e.mock.On("Update", ctx, id, in)}
+}
+
+func (_c *MockUsecaseMedia_Update_Call) Run(run func(ctx context.Context, id uuid.UUID, in biz.UpdateInput)) *MockUsecaseMedia_Update_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(biz.UpdateInput))
+	})
+	return _c
+}
+
+func (_c *MockUsecaseMedia_Update_Call) Return(_a0 entity.Media, _a1 error) *MockUsecaseMedia_Update_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockUsecaseMedia_Update_Call) RunAndReturn(run func(context.Context, uuid.UUID, biz.UpdateInput) (entity.Media, error)) *MockUsecaseMedia_Update_Call {
 	_c.Call.Return(run)
 	return _c
 }

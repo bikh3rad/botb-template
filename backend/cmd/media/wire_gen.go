@@ -15,6 +15,7 @@ import (
 	"application/internal/media/repo"
 	"application/internal/service"
 	"application/internal/service/handler"
+	"application/pkg/middlewares"
 	"context"
 	"net/http"
 )
@@ -77,7 +78,13 @@ func wireApp(ctx context.Context) (app.Application, error) {
 		return nil, err
 	}
 	bizMedia := biz2.NewMedia(logger, media, minioStorage)
-	handlerMedia := handler2.NewMedia(logger, serveMux, bizMedia)
+	jwtSecret, err := middlewares.NewJWTSecret(kConfig)
+	if err != nil {
+		return nil, err
+	}
+	jwtAuth := middlewares.NewJWTAuth(jwtSecret)
+	recorder := handler2.NewAuditRecorder(logger, postgresDB)
+	handlerMedia := handler2.NewMedia(logger, serveMux, bizMedia, jwtAuth, recorder)
 	v := handler2.NewServiceList(healthzHandler, handlerMedia)
 	httpHandler, err := service.NewHTTPHandler(ctx, logger, serveMux, v...)
 	if err != nil {

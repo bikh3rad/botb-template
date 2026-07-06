@@ -1,15 +1,18 @@
 package handler
 
 import (
-	"application/internal/media/biz"
-	"application/internal/media/dto"
-	"application/internal/service"
 	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
+
+	"application/internal/media/biz"
+	"application/internal/media/dto"
+	"application/internal/service"
+	"application/pkg/audit"
+	"application/pkg/middlewares"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
@@ -28,25 +31,47 @@ type media struct {
 	tracer trace.Tracer
 	mux    *http.ServeMux
 	uc     biz.UsecaseMedia
+	auth   *middlewares.JWTAuth
+	audit  *audit.Recorder
 }
 
 var _ service.Handler = (*media)(nil)
 
 // NewMedia creates the media HTTP handler.
-func NewMedia(logger *slog.Logger, mux *http.ServeMux, uc biz.UsecaseMedia) *media {
+func NewMedia(
+	logger *slog.Logger,
+	mux *http.ServeMux,
+	uc biz.UsecaseMedia,
+	auth *middlewares.JWTAuth,
+	recorder *audit.Recorder,
+) *media {
 	return &media{
 		logger: logger.With("layer", "MediaHandler"),
 		tracer: otel.Tracer("MediaHandler"),
 		mux:    mux,
 		uc:     uc,
+		auth:   auth,
+		audit:  recorder,
 	}
 }
 
-// RegisterHandler mounts the media routes under /apis/media/v1.
+// RegisterHandler mounts the media routes under /apis/media/v1. Reads stay
+// public (the site renders media); ALL mutations live under /admin/ with the
+// role guard — the old unauthenticated POST /uploads is gone. Replacing a
+// file = upload new + delete old; there is deliberately no replace endpoint.
 func (h *media) RegisterHandler(_ context.Context) error {
-	h.mux.HandleFunc("POST /apis/media/v1/uploads", h.upload)
+	admin := func(fn http.HandlerFunc) http.HandlerFunc {
+		return middlewares.MultipleMiddleware(fn, h.auth.RequireAdmin)
+	}
+
+	// Public reads.
 	h.mux.HandleFunc("GET /apis/media/v1/media/{id}", h.get)
 	h.mux.HandleFunc("GET /apis/media/v1/media", h.listByOwner)
+	// Admin lifecycle.
+	h.mux.HandleFunc("POST /apis/media/v1/admin/uploads", admin(h.upload))
+	h.mux.HandleFunc("GET /apis/media/v1/admin/media", admin(h.adminList))
+	h.mux.HandleFunc("PUT /apis/media/v1/admin/media/{id}", admin(h.update))
+	h.mux.HandleFunc("DELETE /apis/media/v1/admin/media/{id}", admin(h.delete))
 
 	return nil
 }
@@ -67,7 +92,7 @@ func (h *media) RegisterHandler(_ context.Context) error {
 //	@Failure		413			{object}	dto.ErrorResponse	"Payload Too Large"
 //	@Failure		415			{object}	dto.ErrorResponse	"Unsupported Media Type"
 //	@Failure		500			{object}	dto.ErrorResponse	"Internal Server Error"
-//	@Router			/apis/media/v1/uploads [post]
+//	@Router			/apis/media/v1/admin/uploads [post]
 func (h *media) upload(w http.ResponseWriter, r *http.Request) {
 	logger := h.logger.With("method", "Upload")
 	ctx := r.Context()
@@ -114,6 +139,11 @@ func (h *media) upload(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
+
+	h.audit.Record(ctx, audit.Entry{
+		Action: "media.upload", EntityType: "media", EntityID: stored.ID.String(),
+		Reason: stored.OwnerType + "/" + stored.OwnerID.String(),
+	})
 
 	writeJSON(w, http.StatusCreated, dto.ToMediaResp(stored), logger, ctx)
 }
@@ -187,6 +217,155 @@ func (h *media) listByOwner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, dto.ToMediaListResp(items), logger, ctx)
+}
+
+// adminList returns media for an owner or, without a filter, a paged global
+// listing for the media library.
+//
+//	@Summary		Admin media list
+//	@Description	Admin: list media by owner, or globally paged when no owner filter is given.
+//	@Tags			Media (Admin)
+//	@Produce		json
+//	@Param			owner_type	query		string	false	"Owner object type"
+//	@Param			owner_id	query		string	false	"Owner object UUID"
+//	@Param			limit		query		int		false	"Page size (default 50, max 200)"
+//	@Param			offset		query		int		false	"Offset"
+//	@Success		200			{object}	dto.MediaPageResp
+//	@Failure		400			{object}	dto.ErrorResponse	"Bad Request"
+//	@Router			/apis/media/v1/admin/media [get]
+func (h *media) adminList(w http.ResponseWriter, r *http.Request) {
+	logger := h.logger.With("method", "AdminList")
+	ctx := r.Context()
+
+	q := r.URL.Query()
+
+	if q.Get("owner_id") != "" || q.Get("owner_type") != "" {
+		ownerID, err := uuid.Parse(q.Get("owner_id"))
+		if err != nil {
+			dto.HandleError(errors.Join(biz.ErrResourceInvalid, errors.New("invalid owner_id")), w)
+
+			return
+		}
+
+		items, err := h.uc.ListByOwner(ctx, q.Get("owner_type"), ownerID)
+		if err != nil {
+			logger.ErrorContext(ctx, "list failed", "error", err)
+			dto.HandleError(err, w)
+
+			return
+		}
+
+		writeJSON(w, http.StatusOK, dto.ToMediaPageResp(items, len(items), len(items), 0), logger, ctx)
+
+		return
+	}
+
+	limit, _ := strconv.Atoi(q.Get("limit"))
+	offset, _ := strconv.Atoi(q.Get("offset"))
+
+	page, err := h.uc.ListAll(ctx, limit, offset)
+	if err != nil {
+		logger.ErrorContext(ctx, "list failed", "error", err)
+		dto.HandleError(err, w)
+
+		return
+	}
+
+	writeJSON(w, http.StatusOK, dto.ToMediaPageResp(page.Items, page.Total, limit, offset), logger, ctx)
+}
+
+// update reorders and/or reassigns a media object.
+//
+//	@Summary		Update media
+//	@Description	Admin: change position (reorder) and/or reassign owner (owner_type+owner_id together).
+//	@Tags			Media (Admin)
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		string				true	"Media UUID"
+//	@Param			media	body		dto.MediaUpdateReq	true	"Changes"
+//	@Success		200		{object}	dto.MediaResp
+//	@Failure		400		{object}	dto.ErrorResponse	"Bad Request"
+//	@Failure		404		{object}	dto.ErrorResponse	"Not Found"
+//	@Router			/apis/media/v1/admin/media/{id} [put]
+func (h *media) update(w http.ResponseWriter, r *http.Request) {
+	logger := h.logger.With("method", "Update")
+	ctx := r.Context()
+
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		dto.HandleError(errors.Join(biz.ErrResourceInvalid, err), w)
+
+		return
+	}
+
+	req := new(dto.MediaUpdateReq)
+	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+		dto.HandleError(errors.Join(biz.ErrResourceInvalid, err), w)
+
+		return
+	}
+
+	in := biz.UpdateInput{Position: req.Position, OwnerType: req.OwnerType}
+
+	if req.OwnerID != "" {
+		ownerID, err := uuid.Parse(req.OwnerID)
+		if err != nil {
+			dto.HandleError(errors.Join(biz.ErrResourceInvalid, err), w)
+
+			return
+		}
+
+		in.OwnerID = &ownerID
+	}
+
+	m, err := h.uc.Update(ctx, id, in)
+	if err != nil {
+		logger.ErrorContext(ctx, "update failed", "error", err)
+		dto.HandleError(err, w)
+
+		return
+	}
+
+	h.audit.Record(ctx, audit.Entry{
+		Action: "media.update", EntityType: "media", EntityID: m.ID.String(),
+	})
+
+	writeJSON(w, http.StatusOK, dto.ToMediaResp(m), logger, ctx)
+}
+
+// delete removes a media record and its stored object.
+//
+//	@Summary		Delete media
+//	@Description	Admin: delete the DB record and the MinIO object (DB first; object best-effort — see biz.Delete).
+//	@Tags			Media (Admin)
+//	@Param			id	path	string	true	"Media UUID"
+//	@Success		204	"No Content"
+//	@Failure		400	{object}	dto.ErrorResponse	"Bad Request"
+//	@Failure		404	{object}	dto.ErrorResponse	"Not Found"
+//	@Router			/apis/media/v1/admin/media/{id} [delete]
+func (h *media) delete(w http.ResponseWriter, r *http.Request) {
+	logger := h.logger.With("method", "Delete")
+	ctx := r.Context()
+
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		dto.HandleError(errors.Join(biz.ErrResourceInvalid, err), w)
+
+		return
+	}
+
+	if err := h.uc.Delete(ctx, id); err != nil {
+		logger.ErrorContext(ctx, "delete failed", "error", err)
+		dto.HandleError(err, w)
+
+		return
+	}
+
+	h.audit.Record(ctx, audit.Entry{
+		Action: "media.delete", EntityType: "media", EntityID: id.String(),
+	})
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any, logger *slog.Logger, ctx context.Context) {

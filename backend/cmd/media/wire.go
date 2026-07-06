@@ -6,6 +6,8 @@
 package main
 
 import (
+	"context"
+
 	"application/app"
 	flatbiz "application/internal/biz"
 	"application/internal/datasource"
@@ -14,7 +16,7 @@ import (
 	mediarepo "application/internal/media/repo"
 	"application/internal/service"
 	svchandler "application/internal/service/handler"
-	"context"
+	"application/pkg/middlewares"
 
 	"github.com/google/wire"
 )
@@ -35,6 +37,10 @@ func wireApp(
 		// Shared healthz endpoints.
 		flatbiz.HealthzProviderSet,
 		svchandler.NewMuxHealthzHandler,
+
+		// Shared JWT auth (media mutations moved under /admin/ — the old
+		// unauthenticated upload is gone).
+		middlewares.JWTProviderSet,
 
 		// Media domain.
 		mediabiz.ProviderSet,

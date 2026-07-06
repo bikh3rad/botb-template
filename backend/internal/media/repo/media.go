@@ -1,13 +1,15 @@
 package repo
 
 import (
-	"application/internal/datasource"
-	"application/internal/media/biz"
-	"application/internal/media/entity"
 	"context"
 	"database/sql"
 	"errors"
 	"log/slog"
+	"strconv"
+
+	"application/internal/datasource"
+	"application/internal/media/biz"
+	"application/internal/media/entity"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
@@ -49,7 +51,8 @@ func (r *media) Create(ctx context.Context, m entity.Media) (entity.Media, error
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING created_at`
 
-	row := r.db.QueryRowContext(ctx, query,
+	row := r.db.QueryRowContext(
+		ctx, query,
 		m.ID, m.OwnerType, m.OwnerID, string(m.Kind), m.Bucket, m.ObjectKey,
 		m.ContentType, m.SizeBytes, m.Width, m.Height, duration, m.Position,
 	)
@@ -122,6 +125,108 @@ func (r *media) ListByOwner(
 	}
 
 	return out, nil
+}
+
+// ListAll returns a paged global listing plus the total row count.
+func (r *media) ListAll(ctx context.Context, limit, offset int) (biz.MediaPage, error) {
+	logger := r.logger.With("method", "ListAll")
+
+	var total int
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM media`).Scan(&total); err != nil {
+		logger.WarnContext(ctx, "failed to count media", "error", err)
+
+		return biz.MediaPage{}, err
+	}
+
+	// Limit/Offset are bounded ints (capped in the use case), inlined as
+	// literals for driver portability — same pattern as the user/draw repos.
+	query := `SELECT ` + selectColumns + ` FROM media
+		ORDER BY created_at DESC LIMIT ` + strconv.Itoa(limit) +
+		` OFFSET ` + strconv.Itoa(offset)
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		logger.WarnContext(ctx, "failed to query media", "error", err)
+
+		return biz.MediaPage{}, err
+	}
+	defer rows.Close()
+
+	items := []entity.Media{}
+
+	for rows.Next() {
+		m, err := scanMedia(rows)
+		if err != nil {
+			logger.WarnContext(ctx, "failed to scan media row", "error", err)
+
+			continue
+		}
+
+		items = append(items, m)
+	}
+
+	if err := rows.Err(); err != nil {
+		return biz.MediaPage{}, err
+	}
+
+	return biz.MediaPage{Items: items, Total: total}, nil
+}
+
+// Delete removes a media row, mapping a missing row to ErrResourceNotFound.
+func (r *media) Delete(ctx context.Context, id uuid.UUID) error {
+	logger := r.logger.With("method", "Delete")
+
+	res, err := r.db.ExecContext(ctx, `DELETE FROM media WHERE id = $1`, id)
+	if err != nil {
+		logger.WarnContext(ctx, "failed to delete media", "error", err)
+
+		return err
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if affected == 0 {
+		return biz.ErrResourceNotFound
+	}
+
+	return nil
+}
+
+// Update writes position and/or owner reference (UPDATE-then-SELECT, no
+// RETURNING, for ramsql compatibility).
+func (r *media) Update(ctx context.Context, id uuid.UUID, in biz.UpdateInput) (entity.Media, error) {
+	logger := r.logger.With("method", "Update")
+
+	current, err := r.Get(ctx, id)
+	if err != nil {
+		return entity.Media{}, err
+	}
+
+	position := current.Position
+	if in.Position != nil {
+		position = *in.Position
+	}
+
+	ownerType := current.OwnerType
+	ownerID := current.OwnerID
+
+	if in.OwnerType != "" && in.OwnerID != nil {
+		ownerType = in.OwnerType
+		ownerID = *in.OwnerID
+	}
+
+	if _, err := r.db.ExecContext(ctx,
+		`UPDATE media SET position = $1, owner_type = $2, owner_id = $3 WHERE id = $4`,
+		position, ownerType, ownerID, id); err != nil {
+		logger.WarnContext(ctx, "failed to update media", "error", err)
+
+		return entity.Media{}, err
+	}
+
+	return r.Get(ctx, id)
 }
 
 // scanner abstracts *sql.Row and *sql.Rows for a shared scan routine.
