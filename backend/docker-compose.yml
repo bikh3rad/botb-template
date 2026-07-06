@@ -97,6 +97,22 @@ services:
     environment: *service-env
     depends_on: *db-ready
 
+  # --- adminauth: independent admin identity service (internal only). First
+  #     superadmin bootstrapped from APP_ADMINAUTH_BOOTSTRAP_* on first boot. ---
+  adminauth:
+    <<: *service-base
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: adminauth
+    environment:
+      <<: *service-env
+      APP_ADMINAUTH_BOOTSTRAP_NAME: ${ADMIN_BOOTSTRAP_NAME:-Superadmin}
+      APP_ADMINAUTH_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-admin@botb.local}
+      APP_ADMINAUTH_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-change-me-now}
+    depends_on: *db-ready
+
   media:
     <<: *service-base
     build:
@@ -128,6 +144,7 @@ services:
       APP_GATEWAY_UPSTREAMS_USER: http://user:8080
       APP_GATEWAY_UPSTREAMS_DRAW: http://draw:8080
       APP_GATEWAY_UPSTREAMS_MEDIA: http://media:8080
+      APP_GATEWAY_UPSTREAMS_ADMINAUTH: http://adminauth:8080
     depends_on:
       competition:
         condition: service_started
@@ -136,6 +153,8 @@ services:
       draw:
         condition: service_started
       media:
+        condition: service_started
+      adminauth:
         condition: service_started
     ports:
       - "${GATEWAY_PORT:-8080}:8080"
