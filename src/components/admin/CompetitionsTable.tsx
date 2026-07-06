@@ -162,6 +162,9 @@ export function CompetitionsTable() {
   // Delete confirmation dialog target.
   const [deleteTarget, setDeleteTarget] = React.useState<Competition | null>(null)
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
+  // Typed-title confirmation guard, and the "has entrants" (409) blocked state.
+  const [deleteConfirmText, setDeleteConfirmText] = React.useState("")
+  const [deleteBlocked, setDeleteBlocked] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
 
   async function load() {
@@ -274,13 +277,55 @@ export function CompetitionsTable() {
     }
   }
 
+  function closeDeleteDialog() {
+    setDeleteTarget(null)
+    setDeleteError(null)
+    setDeleteConfirmText("")
+    setDeleteBlocked(false)
+  }
+
   async function confirmDelete() {
     if (deleteTarget === null) return
     setDeleteError(null)
     setDeleting(true)
     try {
       await apiDelete(`/apis/competition/v1/admin/competitions/${deleteTarget.id}`)
-      setDeleteTarget(null)
+      closeDeleteDialog()
+      await load()
+    } catch (err) {
+      // 409 = the competition has sold tickets or a draw; offer to close instead.
+      if (err instanceof ApiError && err.status === 409) {
+        setDeleteBlocked(true)
+        setDeleteError(err.message)
+      } else {
+        setDeleteError(err instanceof ApiError ? err.message : "Something went wrong")
+      }
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  // "Close competition instead" — the safe alternative to deleting a
+  // competition with entrants. Sends the full-field PUT with status=closed.
+  async function closeInstead() {
+    if (deleteTarget === null) return
+    setDeleteError(null)
+    setDeleting(true)
+    try {
+      const body: CompetitionInput = {
+        title: deleteTarget.title,
+        slug: deleteTarget.slug,
+        description: deleteTarget.description,
+        prize: deleteTarget.prize,
+        ticket_price_pence: deleteTarget.ticket_price_pence,
+        tickets_total: deleteTarget.tickets_total,
+        category_id: deleteTarget.category_id || null,
+        status: "closed",
+        starts_at: deleteTarget.starts_at,
+        ends_at: deleteTarget.ends_at,
+      }
+      await apiPut(`/apis/competition/v1/admin/competitions/${deleteTarget.id}`, body)
+      closeDeleteDialog()
       await load()
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : "Something went wrong")
@@ -660,23 +705,40 @@ export function CompetitionsTable() {
       <Dialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
-          if (!open) {
-            setDeleteTarget(null)
-            setDeleteError(null)
-          }
+          if (!open) closeDeleteDialog()
         }}
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Delete competition?</DialogTitle>
+            <DialogTitle>
+              {deleteBlocked ? "Can’t delete this competition" : "Delete competition?"}
+            </DialogTitle>
             <DialogDescription>
-              {deleteTarget
-                ? `“${deleteTarget.title}” will be permanently removed. This can’t be undone.`
-                : "This can’t be undone."}
+              {deleteBlocked
+                ? "It has sold tickets or a draw, so entrants have paid and results reference it. Close it instead — closed competitions stay on record but leave the live grids."
+                : deleteTarget
+                  ? `“${deleteTarget.title}” and its media will be permanently removed. This can’t be undone.`
+                  : "This can’t be undone."}
             </DialogDescription>
           </DialogHeader>
 
-          {deleteError && (
+          {/* Type-to-confirm guard (only when a plain delete is still possible). */}
+          {!deleteBlocked && deleteTarget && (
+            <div className="space-y-1.5">
+              <Label htmlFor="delete-confirm">
+                Type <span className="font-semibold">{deleteTarget.title}</span> to confirm
+              </Label>
+              <Input
+                id="delete-confirm"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                autoComplete="off"
+                placeholder={deleteTarget.title}
+              />
+            </div>
+          )}
+
+          {deleteError && !deleteBlocked && (
             <p className="inline-flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
               <AlertCircle className="size-4 shrink-0" />
               {deleteError}
@@ -687,30 +749,48 @@ export function CompetitionsTable() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setDeleteTarget(null)}
+              onClick={closeDeleteDialog}
               disabled={deleting}
             >
               Cancel
             </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => void confirmDelete()}
-              disabled={deleting}
-              className="gap-1.5"
-            >
-              {deleting ? (
-                <>
-                  <Loader2 className="animate-spin" />
-                  Deleting…
-                </>
-              ) : (
-                <>
-                  <Trash2 data-icon="inline-start" />
-                  Delete
-                </>
-              )}
-            </Button>
+            {deleteBlocked ? (
+              <Button
+                type="button"
+                onClick={() => void closeInstead()}
+                disabled={deleting}
+                className="gap-1.5"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="animate-spin" />
+                    Closing…
+                  </>
+                ) : (
+                  "Close competition instead"
+                )}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => void confirmDelete()}
+                disabled={deleting || deleteConfirmText.trim() !== deleteTarget?.title}
+                className="gap-1.5"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="animate-spin" />
+                    Deleting…
+                  </>
+                ) : (
+                  <>
+                    <Trash2 data-icon="inline-start" />
+                    Delete
+                  </>
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
