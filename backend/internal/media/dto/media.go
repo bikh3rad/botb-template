@@ -43,6 +43,33 @@ func ToMediaResp(m entity.Media) MediaResp {
 	}
 }
 
+// MediaUpdateReq reorders and/or reassigns a media object; omitted fields are
+// unchanged. owner_type and owner_id must be set together.
+type MediaUpdateReq struct {
+	Position  *int   `json:"position"`
+	OwnerType string `json:"owner_type,omitempty"`
+	OwnerID   string `json:"owner_id,omitempty"`
+}
+
+// MediaPageResp is the paged global list envelope (admin media library).
+type MediaPageResp struct {
+	Count  int         `json:"count"`
+	Total  int         `json:"total"`
+	Limit  int         `json:"limit"`
+	Offset int         `json:"offset"`
+	Media  []MediaResp `json:"media"`
+}
+
+// ToMediaPageResp maps a page of media to the envelope.
+func ToMediaPageResp(items []entity.Media, total, limit, offset int) MediaPageResp {
+	out := make([]MediaResp, 0, len(items))
+	for i := range items {
+		out = append(out, ToMediaResp(items[i]))
+	}
+
+	return MediaPageResp{Count: len(out), Total: total, Limit: limit, Offset: offset, Media: out}
+}
+
 // MediaListResp is the list envelope used for owner queries.
 type MediaListResp struct {
 	Count int         `json:"count"`

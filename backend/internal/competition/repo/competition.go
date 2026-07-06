@@ -1,13 +1,14 @@
 package repo
 
 import (
-	"application/internal/competition/biz"
-	"application/internal/competition/entity"
-	"application/internal/datasource"
 	"context"
 	"database/sql"
 	"errors"
 	"log/slog"
+
+	"application/internal/competition/biz"
+	"application/internal/competition/entity"
+	"application/internal/datasource"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -36,7 +37,7 @@ func NewCompetition(logger *slog.Logger, db *datasource.PostgresDB) *competition
 }
 
 const competitionColumns = `id, title, slug, description, prize, ticket_price_pence,
-	tickets_total, tickets_sold, status, starts_at, ends_at, created_at, updated_at`
+	tickets_total, tickets_sold, category_id, status, starts_at, ends_at, created_at, updated_at`
 
 // Create inserts a competition (id pre-generated) and returns the stored row.
 func (r *competition) Create(ctx context.Context, c entity.Competition) (entity.Competition, error) {
@@ -44,13 +45,14 @@ func (r *competition) Create(ctx context.Context, c entity.Competition) (entity.
 
 	query := `INSERT INTO competitions
 		(id, title, slug, description, prize, ticket_price_pence, tickets_total,
-		 tickets_sold, status, starts_at, ends_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		 tickets_sold, category_id, status, starts_at, ends_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 		RETURNING created_at, updated_at`
 
-	row := r.db.QueryRowContext(ctx, query,
+	row := r.db.QueryRowContext(
+		ctx, query,
 		c.ID, c.Title, c.Slug, c.Description, c.Prize, c.TicketPricePence,
-		c.TicketsTotal, c.TicketsSold, string(c.Status), c.StartsAt, c.EndsAt,
+		c.TicketsTotal, c.TicketsSold, nullableUUID(c.CategoryID), string(c.Status), c.StartsAt, c.EndsAt,
 	)
 
 	if err := row.Scan(&c.CreatedAt, &c.UpdatedAt); err != nil {
@@ -93,7 +95,12 @@ func (r *competition) Get(ctx context.Context, id uuid.UUID) (entity.Competition
 
 	c.Media = media
 
-	return c, nil
+	cs := []entity.Competition{c}
+	if err := r.fillCategoryNames(ctx, cs); err != nil {
+		return entity.Competition{}, err
+	}
+
+	return cs[0], nil
 }
 
 // List returns competitions (optionally filtered by status), newest first, each
@@ -150,6 +157,10 @@ func (r *competition) List(ctx context.Context, filter biz.ListFilter) ([]entity
 		out[i].Media = media
 	}
 
+	if err := r.fillCategoryNames(ctx, out); err != nil {
+		return nil, err
+	}
+
 	return out, nil
 }
 
@@ -157,20 +168,29 @@ func (r *competition) List(ctx context.Context, filter biz.ListFilter) ([]entity
 func (r *competition) Update(ctx context.Context, c entity.Competition) (entity.Competition, error) {
 	logger := r.logger.With("method", "Update")
 
+	// tickets_sold is deliberately NOT in this SET list — it is derived from
+	// purchases and no admin endpoint may write it. slug IS updatable (full-
+	// field editability); uniqueness maps to ErrResourceExists below.
 	query := `UPDATE competitions SET
-		title = $2, description = $3, prize = $4, ticket_price_pence = $5,
-		tickets_total = $6, status = $7, starts_at = $8, ends_at = $9,
+		title = $2, slug = $3, description = $4, prize = $5, ticket_price_pence = $6,
+		tickets_total = $7, category_id = $8, status = $9, starts_at = $10, ends_at = $11,
 		updated_at = NOW()
 		WHERE id = $1
 		RETURNING ` + competitionColumns
 
-	updated, err := scanCompetition(r.db.QueryRowContext(ctx, query,
-		c.ID, c.Title, c.Description, c.Prize, c.TicketPricePence,
-		c.TicketsTotal, string(c.Status), c.StartsAt, c.EndsAt,
+	updated, err := scanCompetition(r.db.QueryRowContext(
+		ctx, query,
+		c.ID, c.Title, c.Slug, c.Description, c.Prize, c.TicketPricePence,
+		c.TicketsTotal, nullableUUID(c.CategoryID), string(c.Status), c.StartsAt, c.EndsAt,
 	))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return entity.Competition{}, biz.ErrResourceNotFound
+		}
+
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
+			return entity.Competition{}, biz.ErrResourceExists
 		}
 
 		logger.WarnContext(ctx, "failed to update competition", "error", err)
@@ -185,7 +205,12 @@ func (r *competition) Update(ctx context.Context, c entity.Competition) (entity.
 
 	updated.Media = media
 
-	return updated, nil
+	cs := []entity.Competition{updated}
+	if err := r.fillCategoryNames(ctx, cs); err != nil {
+		return entity.Competition{}, err
+	}
+
+	return cs[0], nil
 }
 
 // Delete removes a competition, returning ErrResourceNotFound if absent.
@@ -251,13 +276,14 @@ type scanner interface {
 
 func scanCompetition(s scanner) (entity.Competition, error) {
 	var (
-		c      entity.Competition
-		status string
+		c          entity.Competition
+		status     string
+		categoryID uuid.NullUUID
 	)
 
 	if err := s.Scan(
 		&c.ID, &c.Title, &c.Slug, &c.Description, &c.Prize, &c.TicketPricePence,
-		&c.TicketsTotal, &c.TicketsSold, &status, &c.StartsAt, &c.EndsAt,
+		&c.TicketsTotal, &c.TicketsSold, &categoryID, &status, &c.StartsAt, &c.EndsAt,
 		&c.CreatedAt, &c.UpdatedAt,
 	); err != nil {
 		return entity.Competition{}, err
@@ -266,5 +292,73 @@ func scanCompetition(s scanner) (entity.Competition, error) {
 	c.Status = entity.Status(status)
 	c.Media = []entity.MediaRef{}
 
+	if categoryID.Valid {
+		id := categoryID.UUID
+		c.CategoryID = &id
+	}
+
 	return c, nil
+}
+
+// nullableUUID maps a *uuid.UUID to a driver-friendly NULL when unset.
+func nullableUUID(id *uuid.UUID) any {
+	if id == nil {
+		return nil
+	}
+
+	return *id
+}
+
+// fillCategoryNames resolves category display names in one small query (the
+// categories table is tiny) instead of a JOIN, keeping the main queries
+// ramsql-testable.
+func (r *competition) fillCategoryNames(ctx context.Context, cs []entity.Competition) error {
+	needed := false
+
+	for i := range cs {
+		if cs[i].CategoryID != nil {
+			needed = true
+
+			break
+		}
+	}
+
+	if !needed {
+		return nil
+	}
+
+	rows, err := r.db.QueryContext(ctx, `SELECT id, name FROM categories`)
+	if err != nil {
+		r.logger.WarnContext(ctx, "failed to query categories", "error", err)
+
+		return err
+	}
+	defer rows.Close()
+
+	names := map[uuid.UUID]string{}
+
+	for rows.Next() {
+		var (
+			id   uuid.UUID
+			name string
+		)
+
+		if err := rows.Scan(&id, &name); err != nil {
+			continue
+		}
+
+		names[id] = name
+	}
+
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for i := range cs {
+		if cs[i].CategoryID != nil {
+			cs[i].CategoryName = names[*cs[i].CategoryID]
+		}
+	}
+
+	return nil
 }

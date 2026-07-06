@@ -1,16 +1,18 @@
 package handler
 
 import (
-	"application/internal/competition/biz"
-	"application/internal/competition/dto"
-	"application/internal/competition/entity"
-	"application/internal/service"
-	"application/pkg/middlewares"
 	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+
+	"application/internal/competition/biz"
+	"application/internal/competition/dto"
+	"application/internal/competition/entity"
+	"application/internal/service"
+	"application/pkg/audit"
+	"application/pkg/middlewares"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
@@ -23,6 +25,7 @@ type competition struct {
 	mux    *http.ServeMux
 	uc     biz.UsecaseCompetition
 	auth   *middlewares.JWTAuth
+	audit  *audit.Recorder
 }
 
 var _ service.Handler = (*competition)(nil)
@@ -33,6 +36,7 @@ func NewCompetition(
 	mux *http.ServeMux,
 	uc biz.UsecaseCompetition,
 	auth *middlewares.JWTAuth,
+	recorder *audit.Recorder,
 ) *competition {
 	return &competition{
 		logger: logger.With("layer", "CompetitionHandler"),
@@ -40,6 +44,7 @@ func NewCompetition(
 		mux:    mux,
 		uc:     uc,
 		auth:   auth,
+		audit:  recorder,
 	}
 }
 
@@ -48,7 +53,7 @@ func NewCompetition(
 // service reached directly on its own port must not be unprotected.
 func (h *competition) RegisterHandler(_ context.Context) error {
 	admin := func(fn http.HandlerFunc) http.HandlerFunc {
-		return middlewares.MultipleMiddleware(fn, h.auth.Middleware)
+		return middlewares.MultipleMiddleware(fn, h.auth.RequireAdmin)
 	}
 
 	// Public.
@@ -168,6 +173,10 @@ func (h *competition) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.audit.Record(ctx, audit.Entry{
+		Action: "competition.create", EntityType: "competition", EntityID: c.ID.String(), Reason: c.Title,
+	})
+
 	writeJSON(ctx, w, http.StatusCreated, dto.ToCompetitionResp(c), logger)
 }
 
@@ -218,6 +227,10 @@ func (h *competition) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.audit.Record(ctx, audit.Entry{
+		Action: "competition.update", EntityType: "competition", EntityID: c.ID.String(), Reason: c.Title,
+	})
+
 	writeJSON(ctx, w, http.StatusOK, dto.ToCompetitionResp(c), logger)
 }
 
@@ -250,6 +263,10 @@ func (h *competition) delete(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
+
+	h.audit.Record(ctx, audit.Entry{
+		Action: "competition.delete", EntityType: "competition", EntityID: id.String(),
+	})
 
 	w.WriteHeader(http.StatusNoContent)
 }

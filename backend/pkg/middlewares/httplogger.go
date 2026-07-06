@@ -1,11 +1,12 @@
 package middlewares
 
 import (
-	"application/pkg/utils"
 	"log/slog"
 	"net/http"
 	"strings"
 	"time"
+
+	"application/pkg/utils"
 )
 
 type StatusRecorder struct {
@@ -54,7 +55,8 @@ func (lm *HTTPLoggerMiddleware) LoggerMiddleware(next http.Handler) http.Handler
 		defer func() {
 			attrs := utils.GetLoggerContextAsAttrs(ctx)
 
-			attrs = append(attrs,
+			attrs = append(
+				attrs,
 				slog.Int("status", recorder.Status),
 				slog.String("duration", time.Since(startTime).String()),
 			)

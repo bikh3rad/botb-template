@@ -1,15 +1,16 @@
 package handler
 
 import (
-	"application/internal/service"
-	"application/internal/user/biz"
-	"application/internal/user/dto"
-	"application/pkg/middlewares"
 	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+
+	"application/internal/service"
+	"application/internal/user/biz"
+	"application/internal/user/dto"
+	"application/pkg/middlewares"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
@@ -43,7 +44,7 @@ func (h *ticket) RegisterHandler(_ context.Context) error {
 	h.mux.HandleFunc("POST /apis/user/v1/tickets", h.purchase)
 	h.mux.HandleFunc(
 		"GET /apis/user/v1/admin/users/{id}/tickets",
-		middlewares.MultipleMiddleware(h.listByUser, h.auth.Middleware),
+		middlewares.MultipleMiddleware(h.listByUser, h.auth.RequireAdmin),
 	)
 
 	return nil

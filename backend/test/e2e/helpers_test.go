@@ -19,10 +19,9 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
@@ -30,12 +29,16 @@ const (
 	// stack. All /apis/ paths are forwarded to their upstream service intact.
 	defaultBaseURL = "http://localhost:8080"
 
-	// defaultJWTSecret mirrors JWT_SECRET / APP_JWT_SECRET from .env.example.
-	// The gateway and every service verify admin bearer tokens with this shared
-	// HMAC secret (defense in depth). This value stands in for a real login,
-	// which is NOT built yet: the services accept ANY validly-signed, unexpired
-	// HS256 token, so minting one here is sufficient to pass the admin guard.
-	defaultJWTSecret = "dev-insecure-change-me"
+	// Bootstrap superadmin credentials — mirror ADMIN_BOOTSTRAP_EMAIL/PASSWORD
+	// from .env.example (adminauth seeds this account on first boot). The e2e
+	// suite logs in FOR REAL against adminauth; there is no hand-minted token.
+	defaultAdminEmail    = "admin@botb.local"
+	defaultAdminPassword = "change-me-now"
+
+	// A plain (non-superadmin) admin the suite provisions via the superadmin, so
+	// it can assert role=admin gets 403 on superadmin-only routes.
+	plainAdminEmail    = "e2e-admin@botb.local"
+	plainAdminPassword = "e2e-admin-password"
 )
 
 // baseURL returns the gateway base URL (env E2E_BASE_URL overrides the default).
@@ -58,13 +61,20 @@ func mediaBaseURL() string {
 	return "http://localhost:9000"
 }
 
-// jwtSecret returns the shared admin HMAC secret (env E2E_JWT_SECRET overrides).
-func jwtSecret() string {
-	if v := os.Getenv("E2E_JWT_SECRET"); v != "" {
-		return v
+// adminCreds returns the bootstrap superadmin credentials (env
+// E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD override the compose defaults).
+func adminCreds() (email, password string) {
+	email = defaultAdminEmail
+	if v := os.Getenv("E2E_ADMIN_EMAIL"); v != "" {
+		email = v
 	}
 
-	return defaultJWTSecret
+	password = defaultAdminPassword
+	if v := os.Getenv("E2E_ADMIN_PASSWORD"); v != "" {
+		password = v
+	}
+
+	return email, password
 }
 
 // stackErr records whether the gateway was reachable at startup. When non-nil,
@@ -112,23 +122,89 @@ func requireStack(t *testing.T) {
 	}
 }
 
-// mintAdminToken signs a minimal HS256 admin token with the shared secret. It
-// carries only `sub` and a 1-hour `exp` — the guard requires a valid signature
-// and a live expiry, nothing more. This substitutes for real login (not built).
-func mintAdminToken(t *testing.T) string {
+// tokenResp mirrors dto.TokenResp from adminauth.
+type tokenResp struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int64  `json:"expires_in"`
+	RefreshToken string `json:"refresh_token"`
+	Admin        struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Email string `json:"email"`
+		Role  string `json:"role"`
+	} `json:"admin"`
+}
+
+// login authenticates against adminauth and returns the full token response.
+func login(t *testing.T, email, password string) tokenResp {
 	t.Helper()
 
-	claims := jwt.MapClaims{
-		"sub": "e2e",
-		"exp": time.Now().Add(time.Hour).Unix(),
+	resp, body := request(t, http.MethodPost, "/apis/adminauth/v1/login", "", map[string]string{
+		"email":    email,
+		"password": password,
+	})
+	requireStatus(t, resp, body, http.StatusOK)
+
+	var tok tokenResp
+	decode(t, body, &tok)
+
+	if tok.AccessToken == "" {
+		t.Fatalf("login returned empty access token; body=%s", string(body))
 	}
 
-	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(jwtSecret()))
-	if err != nil {
-		t.Fatalf("mint admin token: %v", err)
+	return tok
+}
+
+var (
+	superTokenOnce sync.Once
+	superTokenVal  string
+	adminTokenOnce sync.Once
+	adminTokenVal  string
+)
+
+// superadminToken logs in as the bootstrapped superadmin (cached per run).
+func superadminToken(t *testing.T) string {
+	t.Helper()
+
+	superTokenOnce.Do(func() {
+		email, password := adminCreds()
+		superTokenVal = login(t, email, password).AccessToken
+	})
+
+	if superTokenVal == "" {
+		t.Fatal("superadmin login failed")
 	}
 
-	return token
+	return superTokenVal
+}
+
+// adminToken provisions (idempotently, via the superadmin) a plain role=admin
+// account and returns a token for it — used to prove role=admin is accepted on
+// admin routes but rejected (403) on superadmin-only routes.
+func adminToken(t *testing.T) string {
+	t.Helper()
+
+	adminTokenOnce.Do(func() {
+		super := superadminToken(t)
+
+		// Create the plain admin; a 409 (already exists from a prior run) is fine.
+		// request() already drains + closes the body, so we discard the response.
+		_, _ = request(t, http.MethodPost, "/apis/adminauth/v1/admin/accounts", super, map[string]string{
+			"name":     "E2E Admin",
+			"email":    plainAdminEmail,
+			"password": plainAdminPassword,
+			"role":     "admin",
+		})
+
+		adminTokenVal = login(t, plainAdminEmail, plainAdminPassword).AccessToken
+	})
+
+	if adminTokenVal == "" {
+		t.Fatal("plain-admin login failed")
+	}
+
+	return adminTokenVal
 }
 
 // request performs an HTTP call and returns the response plus its fully-read
@@ -233,12 +309,29 @@ type competition struct {
 	TicketPricePence int64      `json:"ticket_price_pence"`
 	TicketsTotal     int64      `json:"tickets_total"`
 	TicketsSold      int64      `json:"tickets_sold"`
+	CategoryID       string     `json:"category_id"`
+	CategoryName     string     `json:"category_name"`
 	Status           string     `json:"status"`
 	StartsAt         string     `json:"starts_at"`
 	EndsAt           string     `json:"ends_at"`
 	CreatedAt        string     `json:"created_at"`
 	UpdatedAt        string     `json:"updated_at"`
 	Media            []mediaRef `json:"media"`
+}
+
+type category struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+type categoryList struct {
+	Count      int        `json:"count"`
+	Categories []category `json:"categories"`
+}
+
+type contentResp struct {
+	Items map[string]string `json:"items"`
 }
 
 type competitionList struct {
@@ -265,6 +358,7 @@ type draw struct {
 	WinnerTicketID string `json:"winner_ticket_id"`
 	Prize          string `json:"prize"`
 	Status         string `json:"status"`
+	VoidReason     string `json:"void_reason"`
 	DrawnAt        string `json:"drawn_at"`
 	CreatedAt      string `json:"created_at"`
 	UpdatedAt      string `json:"updated_at"`
@@ -282,6 +376,7 @@ type user struct {
 	Email           string `json:"email"`
 	TicketsOwned    int64  `json:"tickets_owned"`
 	TotalSpentPence int64  `json:"total_spent_pence"`
+	IsActive        bool   `json:"is_active"`
 	CreatedAt       string `json:"created_at"`
 }
 

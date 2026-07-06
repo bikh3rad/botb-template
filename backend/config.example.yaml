@@ -25,6 +25,19 @@ server:
 jwt:
   secret: "dev-insecure-change-me"
 
+# Adminauth: the independent admin identity service. Signs admin JWTs with the
+# shared jwt.secret above. Bootstrap seeds the FIRST superadmin when no
+# superadmin exists yet — set via env in deployment, never hardcoded:
+#   APP_ADMINAUTH_BOOTSTRAP_EMAIL / APP_ADMINAUTH_BOOTSTRAP_PASSWORD
+#   (optional APP_ADMINAUTH_BOOTSTRAP_NAME). Idempotent; skipped when empty.
+adminauth:
+  access_ttl: "15m"
+  refresh_ttl: "168h"
+  bootstrap:
+    name: ""
+    email: ""
+    password: ""
+
 # Gateway: single public entrypoint. Maps the <servicename> path segment of
 # /apis/<servicename>/... to that service's base URL. Override individual
 # upstreams with e.g. APP_GATEWAY_UPSTREAMS_COMPETITION=http://competition:8081

@@ -75,7 +75,8 @@ func wireApp(ctx context.Context) (app.Application, error) {
 		return nil, err
 	}
 	jwtAuth := middlewares.NewJWTAuth(jwtSecret)
-	handlerDraw := handler2.NewDraw(logger, serveMux, bizDraw, jwtAuth)
+	recorder := handler2.NewAuditRecorder(logger, postgresDB)
+	handlerDraw := handler2.NewDraw(logger, serveMux, bizDraw, jwtAuth, recorder)
 	v := handler2.NewServiceList(healthzHandler, handlerDraw)
 	httpHandler, err := service.NewHTTPHandler(ctx, logger, serveMux, v...)
 	if err != nil {

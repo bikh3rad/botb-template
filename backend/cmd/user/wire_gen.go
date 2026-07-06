@@ -75,7 +75,8 @@ func wireApp(ctx context.Context) (app.Application, error) {
 		return nil, err
 	}
 	jwtAuth := middlewares.NewJWTAuth(jwtSecret)
-	handlerUser := handler2.NewUser(logger, serveMux, bizUser, jwtAuth)
+	recorder := handler2.NewAuditRecorder(logger, postgresDB)
+	handlerUser := handler2.NewUser(logger, serveMux, bizUser, jwtAuth, recorder)
 	ticket := repo.NewTicket(logger, postgresDB)
 	bizTicket := biz2.NewTicket(logger, ticket)
 	handlerTicket := handler2.NewTicket(logger, serveMux, bizTicket, jwtAuth)

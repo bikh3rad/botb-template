@@ -1,12 +1,6 @@
 package handler_test
 
 import (
-	"application/internal/competition/biz"
-	"application/internal/competition/dto"
-	"application/internal/competition/entity"
-	comphandler "application/internal/competition/handler"
-	"application/internal/competition/mocks"
-	"application/pkg/middlewares"
 	"context"
 	"encoding/json"
 	"io"
@@ -16,6 +10,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"application/internal/competition/biz"
+	"application/internal/competition/dto"
+	"application/internal/competition/entity"
+	comphandler "application/internal/competition/handler"
+	"application/internal/competition/mocks"
+	"application/pkg/audit"
+	"application/pkg/middlewares"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -28,8 +30,9 @@ const testSecret = "test-secret"
 // validToken signs an admin bearer token with the test secret.
 func validToken() string {
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": "admin",
-		"exp": time.Now().Add(time.Hour).Unix(),
+		"sub":  "admin",
+		"role": "admin",
+		"exp":  time.Now().Add(time.Hour).Unix(),
 	})
 	s, _ := tok.SignedString([]byte(testSecret))
 
@@ -44,7 +47,8 @@ func newTestHandler(t *testing.T) (*http.ServeMux, *mocks.MockUsecaseCompetition
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	auth := middlewares.NewJWTAuth(middlewares.JWTSecret(testSecret))
-	h := comphandler.NewCompetition(logger, mux, uc, auth)
+	// nil-DB audit recorder is a no-op in tests.
+	h := comphandler.NewCompetition(logger, mux, uc, auth, audit.NewRecorder(logger, nil))
 	require.NoError(t, h.RegisterHandler(context.Background()))
 
 	return mux, uc

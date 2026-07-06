@@ -1,15 +1,16 @@
 package gateway
 
 import (
-	"application/app"
-	"application/internal/service"
-	"application/pkg/middlewares"
 	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
+
+	"application/app"
+	"application/internal/service"
+	"application/pkg/middlewares"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
@@ -89,8 +90,11 @@ func (h *gateway) root(w http.ResponseWriter, _ *http.Request) {
 }
 
 // dispatch routes by the <servicename> path segment. Admin paths
-// (/apis/<svc>/v1/admin/...) are JWT-guarded here (first of two layers — each
-// service re-checks on its own port); everything else passes through.
+// (/apis/<svc>/v1/admin/...) are role-guarded here (first of two layers — each
+// service re-checks on its own port): they require a valid token with
+// role=admin|superadmin (401 without a valid token, 403 with a wrong role).
+// The adminauth account-management group is stricter — superadmin only.
+// Everything else passes through unauthenticated.
 func (h *gateway) dispatch(w http.ResponseWriter, r *http.Request) {
 	logger := h.logger.With("method", "dispatch", "path", r.URL.Path)
 
@@ -110,7 +114,12 @@ func (h *gateway) dispatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isAdminPath(r.URL.Path) {
-		h.auth.Middleware(proxy).ServeHTTP(w, r)
+		guard := h.auth.RequireAdmin
+		if svc == "adminauth" {
+			guard = h.auth.RequireSuperadmin
+		}
+
+		guard(proxy).ServeHTTP(w, r)
 
 		return
 	}

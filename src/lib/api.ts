@@ -1,14 +1,16 @@
 // SERVER-ONLY typed fetch helpers for the Go backend gateway.
 //
-// This module is imported ONLY by Server Components / route handlers. It must
-// never reach a Client Component: it reads the internal gateway URL and (via
-// server-token.ts) the server-only JWT_SECRET. The `server-only` package is not
-// available in this template, so the boundary is enforced by convention.
+// This module is imported ONLY by Server Components. It reads the internal
+// gateway URL and calls PUBLIC endpoints — it holds no credentials.
 //
 // All helpers fail SOFT: on any network/parse error they log and return an
 // empty result so pages still render (and so `next build` never hard-fails when
 // no backend is running).
-import { mintAdminToken } from "@/lib/server-token";
+//
+// This module no longer mints or holds any admin token: the winners feed reads
+// the PUBLIC /apis/draw/v1/winners endpoint, and the admin panel authenticates
+// through the adminauth service (see src/lib/admin/*). The old token-minting
+// leak (a committed signing secret used to forge admin tokens) is gone.
 
 // ---------------------------------------------------------------------------
 // Backend JSON shapes (snake_case, mirrors the Go DTOs).
@@ -45,37 +47,6 @@ export interface ApiCompetition {
 interface CompetitionListResp {
   count: number;
   competitions: ApiCompetition[];
-}
-
-/** A draw row from the admin draws list. */
-export interface ApiDraw {
-  id: string;
-  competition_id: string;
-  winner_user_id?: string;
-  winner_ticket_id?: string;
-  prize: string;
-  status: string;
-  drawn_at?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface DrawListResp {
-  draws: ApiDraw[];
-}
-
-/** A user row from the admin users list. */
-export interface ApiUser {
-  id: string;
-  name: string;
-  email: string;
-  tickets_owned: number;
-  total_spent_pence: number;
-  created_at: string;
-}
-
-interface UserListResp {
-  users: ApiUser[];
 }
 
 /** A media row from the public media-by-owner list. */
@@ -195,26 +166,20 @@ export async function getCompetitionBySlug(
 }
 
 // ---------------------------------------------------------------------------
-// Winners feed (admin-authenticated joins) — SERVER ONLY.
+// Winners feed — SERVER ONLY, PUBLIC (no admin token).
 // ---------------------------------------------------------------------------
 
-/** Authenticated GET against an admin endpoint using a freshly minted token. */
-async function adminGet<T>(path: string): Promise<T | null> {
-  const url = `${apiBase()}${path}`;
-  try {
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${mintAdminToken()}` },
-      next: { revalidate: REVALIDATE_SECONDS },
-    });
-    if (!res.ok) {
-      console.error(`adminGet: ${res.status} from ${url}`);
-      return null;
-    }
-    return (await res.json()) as T;
-  } catch (err) {
-    console.error(`adminGet ${path} failed:`, err);
-    return null;
-  }
+/** A winner row from the public winners feed. */
+interface ApiWinner {
+  draw_id: string;
+  prize: string;
+  drawn_at?: string;
+  winner_user_id: string;
+  winner_name: string;
+}
+
+interface WinnerListResp {
+  winners: ApiWinner[];
 }
 
 /** Public GET (no auth) that tolerates failure by returning null. */
@@ -257,42 +222,24 @@ async function winnerAvatar(userId: string): Promise<string> {
 }
 
 /**
- * Build the public winners feed from the admin draw + user lists (the only
- * source of winner records). Joins each DRAWN draw to its user (for the name)
- * and to the user's avatar media. Runs only in Server Components. Ordered most
- * recently drawn first. Returns [] on any failure.
+ * Build the public winners feed from the PUBLIC winners endpoint (the draw
+ * service joins drawn draws to winner names server-side). Resolves each
+ * winner's avatar from the public media-by-owner endpoint. Runs only in Server
+ * Components. Ordered most recently drawn first. Returns [] on any failure.
+ * No admin token is involved — winners are public data.
  */
 export async function getWinners(): Promise<WinnerFeedItem[]> {
-  const [drawsResp, usersResp] = await Promise.all([
-    adminGet<DrawListResp>("/apis/draw/v1/admin/draws"),
-    adminGet<UserListResp>("/apis/user/v1/admin/users"),
-  ]);
-
-  const draws = (drawsResp?.draws ?? []).filter(
-    (d) => d.status === "drawn" && d.winner_user_id,
-  );
-  if (draws.length === 0) return [];
-
-  const usersById = new Map<string, ApiUser>(
-    (usersResp?.users ?? []).map((u) => [u.id, u]),
-  );
-
-  // Most recently drawn first (mirrors the "another winner, now" ordering).
-  draws.sort((a, b) => {
-    const at = a.drawn_at ? Date.parse(a.drawn_at) : 0;
-    const bt = b.drawn_at ? Date.parse(b.drawn_at) : 0;
-    return bt - at;
-  });
+  const resp = await publicGet<WinnerListResp>("/apis/draw/v1/winners?limit=24");
+  const winners = resp?.winners ?? [];
+  if (winners.length === 0) return [];
 
   const items = await Promise.all(
-    draws.map(async (draw): Promise<WinnerFeedItem> => {
-      const userId = draw.winner_user_id as string;
-      const user = usersById.get(userId);
+    winners.map(async (winner): Promise<WinnerFeedItem> => {
       return {
-        name: user?.name ?? "Winner",
-        prize: draw.prize,
-        revealed: revealedLabel(draw.drawn_at),
-        image: await winnerAvatar(userId),
+        name: winner.winner_name || "Winner",
+        prize: winner.prize,
+        revealed: revealedLabel(winner.drawn_at),
+        image: await winnerAvatar(winner.winner_user_id),
       };
     }),
   );

@@ -1,0 +1,1 @@
+ALTER TABLE draws DROP COLUMN IF EXISTS void_reason;

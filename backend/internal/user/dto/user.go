@@ -1,14 +1,23 @@
 package dto
 
 import (
-	"application/internal/user/entity"
 	"time"
+
+	"application/internal/user/entity"
 )
 
 const rfc3339 = "2006-01-02T15:04:05Z07:00"
 
 // RegisterReq is the public registration request body.
 type RegisterReq struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+// UpdateUserReq is the admin profile-edit body. There are deliberately NO
+// fields for tickets_owned/total_spent_pence — those are derived from
+// purchases and cannot be edited.
+type UpdateUserReq struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
 }
@@ -20,6 +29,7 @@ type UserResp struct {
 	Email           string `json:"email"`
 	TicketsOwned    int64  `json:"tickets_owned"`
 	TotalSpentPence int64  `json:"total_spent_pence"`
+	IsActive        bool   `json:"is_active"`
 	CreatedAt       string `json:"created_at"`
 }
 
@@ -31,6 +41,7 @@ func ToUserResp(u entity.User) UserResp {
 		Email:           u.Email,
 		TicketsOwned:    u.TicketsOwned,
 		TotalSpentPence: u.TotalSpentPence,
+		IsActive:        u.IsActive,
 		CreatedAt:       formatTime(u.CreatedAt),
 	}
 }

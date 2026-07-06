@@ -1,10 +1,11 @@
 package dto
 
 import (
-	"application/internal/draw/biz"
 	"encoding/json"
 	"errors"
 	"net/http"
+
+	"application/internal/draw/biz"
 )
 
 // ErrorResponse is the standard error envelope for the draw API.
@@ -23,6 +24,9 @@ var errorsMap = map[error]errorInfo{
 	biz.ErrResourceInvalid:  {Message: "invalid request", Code: http.StatusBadRequest},
 	biz.ErrAlreadyDrawn:     {Message: "draw already run", Code: http.StatusConflict},
 	biz.ErrNoTickets:        {Message: "competition has no tickets to draw", Code: http.StatusUnprocessableEntity},
+	biz.ErrReasonRequired:   {Message: "a reason is required", Code: http.StatusBadRequest},
+	biz.ErrInvalidState:     {Message: "draw status does not allow this operation", Code: http.StatusConflict},
+	biz.ErrTicketMismatch:   {Message: "ticket does not belong to this draw's competition", Code: http.StatusUnprocessableEntity},
 }
 
 // HandleError writes a JSON error response, mapping known sentinels to codes.

@@ -1,7 +1,16 @@
 "use client"
 
 import * as React from "react"
-import { Pencil, Plus, Search, Trash2, Trophy } from "lucide-react"
+import {
+  AlertCircle,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  Trophy,
+} from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -25,106 +34,167 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { CompetitionMediaManager } from "@/components/admin/CompetitionMediaManager"
+import { apiDelete, apiGet, apiPost, apiPut, ApiError } from "@/lib/admin/client"
 import {
-  adminCompetitions,
-  formatDate,
   formatNumber,
   formatPence,
+  localInputToRfc3339,
+  penceToPounds,
+  poundsToPence,
+  rfc3339ToLocalInput,
+  slugify,
   soldPercent,
-} from "@/lib/admin-data"
-import type { AdminCompetition, CompetitionStatus } from "@/types/admin"
+} from "@/lib/admin/format"
+import type {
+  Category,
+  Competition,
+  CompetitionApiStatus,
+  CompetitionInput,
+} from "@/types/admin-api"
 
 type BadgeVariant = React.ComponentProps<typeof Badge>["variant"]
 
-/**
- * Display metadata for each lifecycle status: a nicely-cased label and the
- * Badge variant used to colour it. Keeps table + filter labels consistent.
- */
-const STATUS_META: Record<
-  CompetitionStatus,
-  { label: string; variant: BadgeVariant }
-> = {
-  live: { label: "Live", variant: "success" },
-  "ending-soon": { label: "Ending soon", variant: "warning" },
-  "sold-out": { label: "Sold out", variant: "secondary" },
-  drawn: { label: "Drawn", variant: "muted" },
+/** Display metadata for each lifecycle status: label + Badge variant. */
+const STATUS_META: Record<CompetitionApiStatus, { label: string; variant: BadgeVariant }> = {
   draft: { label: "Draft", variant: "outline" },
+  live: { label: "Live", variant: "success" },
+  closed: { label: "Closed", variant: "muted" },
 }
 
-/** Render order for status filter options and form select. */
-const STATUS_ORDER: CompetitionStatus[] = [
-  "live",
-  "ending-soon",
-  "sold-out",
-  "drawn",
-  "draft",
-]
+/** Render order for the status filter dropdown. */
+const STATUS_FILTER_ORDER: CompetitionApiStatus[] = ["draft", "live", "closed"]
 
-/** Editable fields captured by the create/edit dialog. */
+/** Valid forward-only status transitions available from the current status. */
+function statusOptionsFor(current: CompetitionApiStatus | null): CompetitionApiStatus[] {
+  if (current === null) return ["draft", "live"]
+  if (current === "draft") return ["draft", "live"]
+  if (current === "live") return ["live", "closed"]
+  return ["closed"]
+}
+
+/** Editable fields captured by the create/edit dialog (all strings for inputs). */
 interface CompetitionForm {
   title: string
+  slug: string
+  description: string
   prize: string
   /** Ticket price in pounds, as typed (empty or "0" means FREE). */
   price: string
   /** Total tickets available, as typed. */
   total: string
-  category: string
-  status: CompetitionStatus
+  categoryId: string
+  status: CompetitionApiStatus
+  startsAt: string
+  endsAt: string
 }
 
 const EMPTY_FORM: CompetitionForm = {
   title: "",
+  slug: "",
+  description: "",
   prize: "",
   price: "",
   total: "",
-  category: "",
+  categoryId: "",
   status: "draft",
+  startsAt: "",
+  endsAt: "",
 }
 
 /** Build a form snapshot from an existing competition for editing. */
-function toForm(competition: AdminCompetition): CompetitionForm {
+function toForm(competition: Competition): CompetitionForm {
   return {
     title: competition.title,
+    slug: competition.slug,
+    description: competition.description,
     prize: competition.prize,
-    price:
-      competition.ticketPricePence === 0
-        ? ""
-        : (competition.ticketPricePence / 100).toFixed(2),
-    total: String(competition.ticketsTotal),
-    category: competition.category,
+    price: penceToPounds(competition.ticket_price_pence),
+    total: String(competition.tickets_total),
+    categoryId: competition.category_id ?? "",
     status: competition.status,
+    startsAt: rfc3339ToLocalInput(competition.starts_at),
+    endsAt: rfc3339ToLocalInput(competition.ends_at),
   }
 }
 
-/** Today's date as an ISO YYYY-MM-DD string, used as a draft's default close date. */
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
+/** Format an end date for the table, guarding against empty/invalid values. */
+function formatEndDate(iso: string): string {
+  if (!iso) return "—"
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return "—"
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  })
+}
+
+interface CompetitionsListResponse {
+  competitions: Competition[]
+}
+
+interface CategoriesListResponse {
+  categories: Category[]
 }
 
 export function CompetitionsTable() {
-  // Copy the seed data into local state so create/edit/delete mutate locally.
-  const [competitions, setCompetitions] =
-    React.useState<AdminCompetition[]>(adminCompetitions)
+  const [competitions, setCompetitions] = React.useState<Competition[]>([])
+  const [categories, setCategories] = React.useState<Category[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
+
   const [query, setQuery] = React.useState("")
-  const [statusFilter, setStatusFilter] = React.useState<"all" | CompetitionStatus>(
-    "all"
-  )
+  const [statusFilter, setStatusFilter] = React.useState<"all" | CompetitionApiStatus>("all")
 
   // Create/edit dialog. `editingId === null` means we are creating a new row.
   const [formOpen, setFormOpen] = React.useState(false)
   const [editingId, setEditingId] = React.useState<string | null>(null)
+  const [editingTicketsSold, setEditingTicketsSold] = React.useState(0)
+  const [statusOptions, setStatusOptions] = React.useState<CompetitionApiStatus[]>(
+    statusOptionsFor(null)
+  )
   const [form, setForm] = React.useState<CompetitionForm>(EMPTY_FORM)
+  const [slugTouched, setSlugTouched] = React.useState(false)
+  const [formError, setFormError] = React.useState<string | null>(null)
+  const [submitting, setSubmitting] = React.useState(false)
 
   // Delete confirmation dialog target.
-  const [deleteTarget, setDeleteTarget] = React.useState<AdminCompetition | null>(
-    null
-  )
+  const [deleteTarget, setDeleteTarget] = React.useState<Competition | null>(null)
+  const [deleteError, setDeleteError] = React.useState<string | null>(null)
+  const [deleting, setDeleting] = React.useState(false)
+
+  async function load() {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const [draftRes, liveRes, closedRes, categoriesRes] = await Promise.all([
+        apiGet<CompetitionsListResponse>("/apis/competition/v1/competitions?status=draft"),
+        apiGet<CompetitionsListResponse>("/apis/competition/v1/competitions?status=live"),
+        apiGet<CompetitionsListResponse>("/apis/competition/v1/competitions?status=closed"),
+        apiGet<CategoriesListResponse>("/apis/competition/v1/categories"),
+      ])
+      setCompetitions([
+        ...draftRes.competitions,
+        ...liveRes.competitions,
+        ...closedRes.competitions,
+      ])
+      setCategories(categoriesRes.categories)
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : "Something went wrong")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  React.useEffect(() => {
+    void load()
+  }, [])
 
   const filtered = React.useMemo(() => {
     const term = query.trim().toLowerCase()
     return competitions.filter((competition) => {
-      const matchesStatus =
-        statusFilter === "all" || competition.status === statusFilter
+      const matchesStatus = statusFilter === "all" || competition.status === statusFilter
       const matchesQuery =
         term === "" ||
         competition.title.toLowerCase().includes(term) ||
@@ -133,81 +203,95 @@ export function CompetitionsTable() {
     })
   }, [competitions, query, statusFilter])
 
-  function updateForm<K extends keyof CompetitionForm>(
-    key: K,
-    value: CompetitionForm[K]
-  ) {
+  function updateForm<K extends keyof CompetitionForm>(key: K, value: CompetitionForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function handleTitleChange(value: string) {
+    updateForm("title", value)
+    if (!slugTouched) {
+      updateForm("slug", slugify(value))
+    }
+  }
+
+  function handleSlugChange(value: string) {
+    setSlugTouched(true)
+    updateForm("slug", value)
   }
 
   function openCreate() {
     setEditingId(null)
+    setEditingTicketsSold(0)
+    setStatusOptions(statusOptionsFor(null))
     setForm(EMPTY_FORM)
+    setSlugTouched(false)
+    setFormError(null)
     setFormOpen(true)
   }
 
-  function openEdit(competition: AdminCompetition) {
+  function openEdit(competition: Competition) {
     setEditingId(competition.id)
+    setEditingTicketsSold(competition.tickets_sold)
+    setStatusOptions(statusOptionsFor(competition.status))
     setForm(toForm(competition))
+    setSlugTouched(true)
+    setFormError(null)
     setFormOpen(true)
   }
 
-  function handleSave(event: React.FormEvent) {
+  async function handleSave(event: React.FormEvent) {
     event.preventDefault()
+    setFormError(null)
+    setSubmitting(true)
 
-    const ticketPricePence = Math.max(
-      0,
-      Math.round((Number.parseFloat(form.price) || 0) * 100)
-    )
-    const ticketsTotal = Math.max(0, Number.parseInt(form.total, 10) || 0)
+    const slugValue = form.slug.trim() ? slugify(form.slug) : ""
 
-    if (editingId === null) {
-      // Create: brand-new competition with a locally generated id.
-      const created: AdminCompetition = {
-        id: `c-${Date.now()}`,
-        title: form.title.trim(),
-        prize: form.prize.trim(),
-        ticketPricePence,
-        ticketsSold: 0,
-        ticketsTotal,
-        status: form.status,
-        endDate: todayIso(),
-        category: form.category.trim(),
-      }
-      setCompetitions((prev) => [created, ...prev])
-    } else {
-      // Edit: replace the matching row, preserving sales + close date.
-      setCompetitions((prev) =>
-        prev.map((competition) =>
-          competition.id === editingId
-            ? {
-                ...competition,
-                title: form.title.trim(),
-                prize: form.prize.trim(),
-                ticketPricePence,
-                ticketsTotal,
-                status: form.status,
-                category: form.category.trim(),
-              }
-            : competition
-        )
-      )
+    const body: CompetitionInput = {
+      title: form.title.trim(),
+      description: form.description,
+      prize: form.prize.trim(),
+      ticket_price_pence: poundsToPence(form.price || "0"),
+      tickets_total: Math.max(0, Number.parseInt(form.total, 10) || 0),
+      category_id: form.categoryId || null,
+      status: form.status,
+      starts_at: localInputToRfc3339(form.startsAt),
+      ends_at: localInputToRfc3339(form.endsAt),
     }
+    if (slugValue) body.slug = slugValue
 
-    setFormOpen(false)
+    try {
+      if (editingId === null) {
+        await apiPost("/apis/competition/v1/admin/competitions", body)
+      } else {
+        await apiPut(`/apis/competition/v1/admin/competitions/${editingId}`, body)
+      }
+      setFormOpen(false)
+      await load()
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "Something went wrong")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (deleteTarget === null) return
-    setCompetitions((prev) =>
-      prev.filter((competition) => competition.id !== deleteTarget.id)
-    )
-    setDeleteTarget(null)
+    setDeleteError(null)
+    setDeleting(true)
+    try {
+      await apiDelete(`/apis/competition/v1/admin/competitions/${deleteTarget.id}`)
+      setDeleteTarget(null)
+      await load()
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : "Something went wrong")
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
     <div className="space-y-4">
-      {/* Toolbar: search (left) + status filter and create action (right). */}
+      {/* Toolbar: search (left) + status filter, refresh and create action (right). */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-xs">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -225,18 +309,28 @@ export function CompetitionsTable() {
           <Select
             value={statusFilter}
             onChange={(event) =>
-              setStatusFilter(event.target.value as "all" | CompetitionStatus)
+              setStatusFilter(event.target.value as "all" | CompetitionApiStatus)
             }
             className="sm:w-44"
             aria-label="Filter by status"
           >
             <option value="all">All statuses</option>
-            {STATUS_ORDER.map((status) => (
+            {STATUS_FILTER_ORDER.map((status) => (
               <option key={status} value={status}>
                 {STATUS_META[status].label}
               </option>
             ))}
           </Select>
+
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => void load()}
+            disabled={loading}
+            aria-label="Refresh competitions"
+          >
+            <RefreshCw className={loading ? "animate-spin" : undefined} />
+          </Button>
 
           <Button onClick={openCreate} className="shrink-0">
             <Plus data-icon="inline-start" />
@@ -245,9 +339,16 @@ export function CompetitionsTable() {
         </div>
       </div>
 
+      {loadError && (
+        <p className="inline-flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <AlertCircle className="size-4" />
+          {loadError}
+        </p>
+      )}
+
       <p className="text-xs text-muted-foreground">
-        Showing {formatNumber(filtered.length)} of{" "}
-        {formatNumber(competitions.length)} competitions
+        Showing {formatNumber(filtered.length)} of {formatNumber(competitions.length)}{" "}
+        competitions
       </p>
 
       <Card className="overflow-hidden py-0">
@@ -265,7 +366,19 @@ export function CompetitionsTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {loading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="h-32 text-center text-sm text-muted-foreground"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="size-4 animate-spin" />
+                      Loading competitions…
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ) : filtered.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={7}
@@ -280,8 +393,8 @@ export function CompetitionsTable() {
               ) : (
                 filtered.map((competition) => {
                   const percent = soldPercent(
-                    competition.ticketsSold,
-                    competition.ticketsTotal
+                    competition.tickets_sold,
+                    competition.tickets_total
                   )
                   const meta = STATUS_META[competition.status]
 
@@ -290,26 +403,24 @@ export function CompetitionsTable() {
                       <TableCell>
                         <div className="font-medium">{competition.title}</div>
                         <div className="text-xs text-muted-foreground">
-                          {competition.category}
+                          {competition.category_name ?? "—"}
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {competition.prize}
                       </TableCell>
                       <TableCell>
-                        {competition.ticketPricePence === 0 ? (
-                          <span className="font-medium text-botb-green">
-                            FREE
-                          </span>
+                        {competition.ticket_price_pence === 0 ? (
+                          <span className="font-medium text-botb-green">FREE</span>
                         ) : (
-                          formatPence(competition.ticketPricePence)
+                          formatPence(competition.ticket_price_pence)
                         )}
                       </TableCell>
                       <TableCell>
                         <div className="min-w-32 space-y-1.5">
                           <div className="text-xs text-muted-foreground">
-                            {formatNumber(competition.ticketsSold)} /{" "}
-                            {formatNumber(competition.ticketsTotal)}
+                            {formatNumber(competition.tickets_sold)} /{" "}
+                            {formatNumber(competition.tickets_total)}
                           </div>
                           <div
                             className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
@@ -330,7 +441,7 @@ export function CompetitionsTable() {
                         <Badge variant={meta.variant}>{meta.label}</Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {formatDate(competition.endDate)}
+                        {formatEndDate(competition.ends_at)}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
@@ -364,12 +475,10 @@ export function CompetitionsTable() {
 
       {/* Create / edit dialog — reused for both flows. */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>
-              {editingId === null
-                ? "Create New Competition"
-                : "Edit Competition"}
+              {editingId === null ? "Create New Competition" : "Edit Competition"}
             </DialogTitle>
             <DialogDescription>
               {editingId === null
@@ -379,14 +488,42 @@ export function CompetitionsTable() {
           </DialogHeader>
 
           <form onSubmit={handleSave} className="space-y-4">
+            {formError && (
+              <p className="inline-flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <AlertCircle className="size-4 shrink-0" />
+                {formError}
+              </p>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="competition-title">Title</Label>
               <Input
                 id="competition-title"
                 value={form.title}
-                onChange={(event) => updateForm("title", event.target.value)}
+                onChange={(event) => handleTitleChange(event.target.value)}
                 placeholder="Win a Defender D350 X"
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="competition-slug">Slug</Label>
+              <Input
+                id="competition-slug"
+                value={form.slug}
+                onChange={(event) => handleSlugChange(event.target.value)}
+                placeholder="win-a-defender-d350-x"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="competition-description">Description</Label>
+              <textarea
+                id="competition-description"
+                value={form.description}
+                onChange={(event) => updateForm("description", event.target.value)}
+                placeholder="Tell players what they're winning…"
+                className="flex min-h-20 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30"
               />
             </div>
 
@@ -433,15 +570,18 @@ export function CompetitionsTable() {
 
               <div className="space-y-2">
                 <Label htmlFor="competition-category">Category</Label>
-                <Input
+                <Select
                   id="competition-category"
-                  value={form.category}
-                  onChange={(event) =>
-                    updateForm("category", event.target.value)
-                  }
-                  placeholder="Cars"
-                  required
-                />
+                  value={form.categoryId}
+                  onChange={(event) => updateForm("categoryId", event.target.value)}
+                >
+                  <option value="">— None —</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -450,34 +590,69 @@ export function CompetitionsTable() {
                   id="competition-status"
                   value={form.status}
                   onChange={(event) =>
-                    updateForm(
-                      "status",
-                      event.target.value as CompetitionStatus
-                    )
+                    updateForm("status", event.target.value as CompetitionApiStatus)
                   }
                 >
-                  {STATUS_ORDER.map((status) => (
+                  {statusOptions.map((status) => (
                     <option key={status} value={status}>
                       {STATUS_META[status].label}
                     </option>
                   ))}
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="competition-starts">Starts at</Label>
+                <Input
+                  id="competition-starts"
+                  type="datetime-local"
+                  value={form.startsAt}
+                  onChange={(event) => updateForm("startsAt", event.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="competition-ends">Ends at</Label>
+                <Input
+                  id="competition-ends"
+                  type="datetime-local"
+                  value={form.endsAt}
+                  onChange={(event) => updateForm("endsAt", event.target.value)}
+                />
+              </div>
             </div>
+
+            {editingId !== null && (
+              <p className="text-xs text-muted-foreground">
+                Tickets sold: {formatNumber(editingTicketsSold)} (read-only)
+              </p>
+            )}
 
             <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setFormOpen(false)}
+                disabled={submitting}
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                {editingId === null ? "Create Competition" : "Save Changes"}
+              <Button type="submit" disabled={submitting}>
+                {submitting ? (
+                  <>
+                    <Loader2 className="animate-spin" />
+                    Saving…
+                  </>
+                ) : editingId === null ? (
+                  "Create Competition"
+                ) : (
+                  "Save Changes"
+                )}
               </Button>
             </DialogFooter>
           </form>
+
+          {editingId !== null && <CompetitionMediaManager competitionId={editingId} />}
         </DialogContent>
       </Dialog>
 
@@ -485,7 +660,10 @@ export function CompetitionsTable() {
       <Dialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null)
+          if (!open) {
+            setDeleteTarget(null)
+            setDeleteError(null)
+          }
         }}
       >
         <DialogContent className="max-w-sm">
@@ -498,22 +676,40 @@ export function CompetitionsTable() {
             </DialogDescription>
           </DialogHeader>
 
+          {deleteError && (
+            <p className="inline-flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <AlertCircle className="size-4 shrink-0" />
+              {deleteError}
+            </p>
+          )}
+
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
               onClick={() => setDeleteTarget(null)}
+              disabled={deleting}
             >
               Cancel
             </Button>
             <Button
               type="button"
               variant="destructive"
-              onClick={confirmDelete}
+              onClick={() => void confirmDelete()}
+              disabled={deleting}
               className="gap-1.5"
             >
-              <Trash2 data-icon="inline-start" />
-              Delete
+              {deleting ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                <>
+                  <Trash2 data-icon="inline-start" />
+                  Delete
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

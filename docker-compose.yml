@@ -5,10 +5,10 @@
 #
 # Brings up, in order:
 #   postgresql + minio  (infra)                      -> healthy
-#   migrate             (migrations 000001–000005)   -> one-shot
+#   migrate             (all migrations, up)         -> one-shot
 #   createbuckets       (media bucket + public read) -> one-shot
 #   seed                (sample data -> Postgres+MinIO) -> one-shot, idempotent
-#   competition/user/draw/media  (internal only)
+#   competition/user/draw/media/adminauth  (internal only)
 #   gateway             (the ONLY public API port, 8080)
 #   frontend            (Next.js site, public port 3000)
 #
@@ -25,9 +25,9 @@ include:
 
 # --------------------------------------------------------------------------
 # Shared config for every Go service (koanf APP_* overrides). jwt.secret is
-# defined ONCE and shared by gateway + all services so the two-layer admin JWT
-# check agrees end to end. The frontend reuses the same secret to mint an SSR
-# admin token for the winners feed.
+# defined ONCE and shared by the gateway, all services AND adminauth: adminauth
+# SIGNS admin tokens with it and every guard VERIFIES with it, so the two-layer
+# role check agrees end to end. The frontend does NOT get this secret.
 # --------------------------------------------------------------------------
 x-service-env: &service-env
   APP_JWT_SECRET: ${JWT_SECRET:-dev-insecure-change-me}
@@ -140,6 +140,24 @@ services:
     environment: *service-env
     depends_on: *db-ready
 
+  # --- adminauth: independent admin identity service (internal only, no port).
+  #     Signs admin JWTs with the SAME shared secret the guards verify. The
+  #     first superadmin is bootstrapped from the APP_ADMINAUTH_BOOTSTRAP_* env
+  #     on first boot when no superadmin exists yet (idempotent). ---
+  adminauth:
+    <<: *service-base
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        SERVICE: adminauth
+    environment:
+      <<: *service-env
+      APP_ADMINAUTH_BOOTSTRAP_NAME: ${ADMIN_BOOTSTRAP_NAME:-Superadmin}
+      APP_ADMINAUTH_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-admin@botb.local}
+      APP_ADMINAUTH_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-change-me-now}
+    depends_on: *db-ready
+
   media:
     <<: *service-base
     build:
@@ -171,6 +189,7 @@ services:
       APP_GATEWAY_UPSTREAMS_USER: http://user:8080
       APP_GATEWAY_UPSTREAMS_DRAW: http://draw:8080
       APP_GATEWAY_UPSTREAMS_MEDIA: http://media:8080
+      APP_GATEWAY_UPSTREAMS_ADMINAUTH: http://adminauth:8080
     depends_on:
       competition:
         condition: service_started
@@ -179,6 +198,8 @@ services:
       draw:
         condition: service_started
       media:
+        condition: service_started
+      adminauth:
         condition: service_started
     ports:
       - "${GATEWAY_PORT:-8080}:8080"
@@ -196,10 +217,12 @@ services:
       # Browser (client fetches run in the USER's browser, not the compose net):
       NEXT_PUBLIC_API_BASE_URL: http://localhost:${GATEWAY_PORT:-8080}
       NEXT_PUBLIC_MEDIA_BASE_URL: http://localhost:9000
-      # Server-side (SSR) fetches run INSIDE the compose network:
+      # Server-side (SSR) fetches run INSIDE the compose network. The frontend
+      # no longer holds any JWT secret: the winners feed reads a PUBLIC
+      # endpoint, and the admin panel authenticates via the adminauth service
+      # (tokens live in HttpOnly cookies on the frontend origin, proxied to the
+      # gateway server-side — never in the browser or in env).
       API_BASE_URL_INTERNAL: http://gateway:8080
-      # Shared secret to mint the SSR admin token for the winners feed:
-      JWT_SECRET: ${JWT_SECRET:-dev-insecure-change-me}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:

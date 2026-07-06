@@ -2,33 +2,20 @@
 
 import * as React from "react"
 import {
-  Calendar,
-  Check,
+  AlertTriangle,
+  Ban,
   Loader2,
-  PartyPopper,
+  Pencil,
   Play,
+  Plus,
+  ShieldAlert,
   Sparkles,
-  Ticket,
   Trophy,
 } from "lucide-react"
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -37,384 +24,724 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { adminDraws, formatDate, formatNumber } from "@/lib/admin-data"
-import { cn } from "@/lib/utils"
-import type { AdminDraw } from "@/types/admin"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { apiGet, apiPost, apiPut, ApiError } from "@/lib/admin/client"
+import { formatDateTime } from "@/lib/admin/format"
+import type { Competition, Draw, DrawApiStatus } from "@/types/admin-api"
 
-/**
- * Realistic winner names used to simulate a live draw. Kept intentionally
- * distinct from the seeded draw data so a "run draw" result reads as fresh.
- */
-const WINNER_POOL = [
-  "Charlotte Hayes",
-  "Ryan O'Sullivan",
-  "Aisha Rahman",
-  "Daniel Whitfield",
-  "Elena Petrova",
-  "Marcus Boateng",
-  "Sofia Delgado",
-  "Nathan Brooks",
-  "Priya Kapoor",
-  "Callum Fraser",
-] as const
-
-/** How long the simulated draw "spins" before revealing a winner. */
-const DRAW_DURATION_MS = 1200
-
-/** How long a freshly-drawn row stays highlighted after the dialog closes. */
-const HIGHLIGHT_DURATION_MS = 4000
-
-/** The stage of the run-draw dialog flow. */
-type DrawPhase = "confirm" | "drawing" | "success"
-
-/** The outcome produced by a simulated draw. */
-interface DrawResult {
-  winner: string
-  ticketNumber: number
+/** Response shape for the admin draws list endpoint. */
+interface DrawsResponse {
+  draws: Draw[]
+  total: number
+  count: number
+  limit: number
+  offset: number
 }
 
-/** Derive up to two uppercase initials from a full name, e.g. "Marcus Reid" -> "MR". */
-function getInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("")
+/** Response shape for the competitions list endpoint. */
+interface CompetitionsResponse {
+  competitions: Competition[]
 }
 
-/**
- * Order draws so the actionable pending draws surface first, then completed
- * draws by most-recent date. Sorting a copy keeps the source order intact.
- */
-function sortDraws(draws: AdminDraw[]): AdminDraw[] {
-  return [...draws].sort((a, b) => {
-    if (a.status !== b.status) return a.status === "pending" ? -1 : 1
-    return b.drawDate.localeCompare(a.drawDate)
-  })
+/** Display metadata for each draw status. */
+const STATUS_META: Record<
+  DrawApiStatus,
+  { label: string; variant: React.ComponentProps<typeof Badge>["variant"] }
+> = {
+  pending: { label: "Pending", variant: "warning" },
+  drawn: { label: "Drawn", variant: "success" },
+  void: { label: "Void", variant: "muted" },
 }
+
+/** Which dialog (if any) is currently open, and for which draw. */
+type DialogState =
+  | { kind: "create" }
+  | { kind: "edit"; draw: Draw }
+  | { kind: "void"; draw: Draw }
+  | { kind: "run"; draw: Draw }
+  | { kind: "reassign"; draw: Draw }
+  | null
 
 export function WinnersTable() {
-  // Local copy so simulated draws persist for the session without an API.
-  const [draws, setDraws] = React.useState<AdminDraw[]>(() => sortDraws(adminDraws))
+  const [draws, setDraws] = React.useState<Draw[]>([])
+  const [competitions, setCompetitions] = React.useState<Competition[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
 
-  // Dialog flow state. `activeDrawId` doubles as the open/closed signal.
-  const [activeDrawId, setActiveDrawId] = React.useState<string | null>(null)
-  const [phase, setPhase] = React.useState<DrawPhase>("confirm")
-  const [result, setResult] = React.useState<DrawResult | null>(null)
-  const [recentlyDrawnId, setRecentlyDrawnId] = React.useState<string | null>(null)
+  const [dialog, setDialog] = React.useState<DialogState>(null)
+  const [submitting, setSubmitting] = React.useState(false)
+  const [formError, setFormError] = React.useState<string | null>(null)
 
-  const activeDraw = React.useMemo(
-    () => draws.find((draw) => draw.id === activeDrawId) ?? null,
-    [draws, activeDrawId]
+  // Create-draw form fields.
+  const [createCompetitionId, setCreateCompetitionId] = React.useState("")
+  const [createPrize, setCreatePrize] = React.useState("")
+
+  // Edit-prize form field.
+  const [editPrize, setEditPrize] = React.useState("")
+
+  // Void-draw form field.
+  const [voidReason, setVoidReason] = React.useState("")
+
+  // Reassign-winner form fields + two-step confirmation.
+  const [reassignStep, setReassignStep] = React.useState<1 | 2>(1)
+  const [reassignTicketId, setReassignTicketId] = React.useState("")
+  const [reassignReason, setReassignReason] = React.useState("")
+
+  const load = React.useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [drawsRes, liveRes, closedRes] = await Promise.all([
+        apiGet<DrawsResponse>("/apis/draw/v1/admin/draws?limit=100&offset=0"),
+        apiGet<CompetitionsResponse>("/apis/competition/v1/competitions?status=live"),
+        apiGet<CompetitionsResponse>("/apis/competition/v1/competitions?status=closed"),
+      ])
+      setDraws(drawsRes.draws ?? [])
+      setCompetitions([...(liveRes.competitions ?? []), ...(closedRes.competitions ?? [])])
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    void load()
+  }, [load])
+
+  const competitionTitle = React.useCallback(
+    (id: string) => competitions.find((c) => c.id === id)?.title ?? id,
+    [competitions]
   )
 
-  const completedCount = draws.filter((draw) => draw.status === "completed").length
-  const pendingCount = draws.filter((draw) => draw.status === "pending").length
-  const pendingDraws = draws.filter((draw) => draw.status === "pending")
-
-  // Clear the row highlight a short while after a draw completes.
-  React.useEffect(() => {
-    if (!recentlyDrawnId) return
-    const timer = window.setTimeout(
-      () => setRecentlyDrawnId(null),
-      HIGHLIGHT_DURATION_MS
-    )
-    return () => window.clearTimeout(timer)
-  }, [recentlyDrawnId])
-
-  function openRunDraw(id: string) {
-    setActiveDrawId(id)
-    setPhase("confirm")
-    setResult(null)
-  }
+  const drawnCount = draws.filter((d) => d.status === "drawn").length
+  const pendingCount = draws.filter((d) => d.status === "pending").length
+  const voidCount = draws.filter((d) => d.status === "void").length
 
   function closeDialog() {
-    setActiveDrawId(null)
-    setPhase("confirm")
-    setResult(null)
+    setDialog(null)
+    setFormError(null)
+    setSubmitting(false)
+    setCreateCompetitionId("")
+    setCreatePrize("")
+    setEditPrize("")
+    setVoidReason("")
+    setReassignStep(1)
+    setReassignTicketId("")
+    setReassignReason("")
   }
 
-  // Base-ui requests a close on backdrop/escape; block it mid-draw so the
-  // simulation can't be interrupted, otherwise reset the flow.
-  function handleOpenChange(open: boolean) {
-    if (open || phase === "drawing") return
-    closeDialog()
+  function openCreate() {
+    setCreateCompetitionId(competitions[0]?.id ?? "")
+    setCreatePrize("")
+    setFormError(null)
+    setDialog({ kind: "create" })
   }
 
-  function confirmDraw() {
-    if (!activeDraw) return
-    const drawId = activeDraw.id
-    setPhase("drawing")
+  function openEdit(draw: Draw) {
+    setEditPrize(draw.prize)
+    setFormError(null)
+    setDialog({ kind: "edit", draw })
+  }
 
-    // Randomness lives only inside the handler/timeout — never during render —
-    // so server and client markup stay identical and hydration is safe.
-    window.setTimeout(() => {
-      const winner = WINNER_POOL[Math.floor(Math.random() * WINNER_POOL.length)]
-      const ticketNumber = Math.floor(Math.random() * 900000) + 1
+  function openVoid(draw: Draw) {
+    setVoidReason("")
+    setFormError(null)
+    setDialog({ kind: "void", draw })
+  }
 
-      setDraws((prev) =>
-        sortDraws(
-          prev.map((draw) =>
-            draw.id === drawId
-              ? { ...draw, winner, ticketNumber, status: "completed" }
-              : draw
-          )
-        )
-      )
-      setResult({ winner, ticketNumber })
-      setRecentlyDrawnId(drawId)
-      setPhase("success")
-    }, DRAW_DURATION_MS)
+  function openRun(draw: Draw) {
+    setFormError(null)
+    setDialog({ kind: "run", draw })
+  }
+
+  function openReassign(draw: Draw) {
+    setReassignStep(1)
+    setReassignTicketId("")
+    setReassignReason("")
+    setFormError(null)
+    setDialog({ kind: "reassign", draw })
+  }
+
+  async function handleCreate(event: React.FormEvent) {
+    event.preventDefault()
+    if (!createCompetitionId) return
+    setSubmitting(true)
+    setFormError(null)
+    try {
+      await apiPost("/apis/draw/v1/admin/draws", {
+        competition_id: createCompetitionId,
+        prize: createPrize.trim(),
+      })
+      closeDialog()
+      await load()
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "Something went wrong")
+      setSubmitting(false)
+    }
+  }
+
+  async function handleEditPrize(event: React.FormEvent) {
+    event.preventDefault()
+    if (dialog?.kind !== "edit") return
+    setSubmitting(true)
+    setFormError(null)
+    try {
+      await apiPut(`/apis/draw/v1/admin/draws/${dialog.draw.id}`, {
+        prize: editPrize.trim(),
+      })
+      closeDialog()
+      await load()
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "Something went wrong")
+      setSubmitting(false)
+    }
+  }
+
+  async function handleVoid(event: React.FormEvent) {
+    event.preventDefault()
+    if (dialog?.kind !== "void" || voidReason.trim() === "") return
+    setSubmitting(true)
+    setFormError(null)
+    try {
+      await apiPost(`/apis/draw/v1/admin/draws/${dialog.draw.id}/void`, {
+        reason: voidReason.trim(),
+      })
+      closeDialog()
+      await load()
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "Something went wrong")
+      setSubmitting(false)
+    }
+  }
+
+  async function handleRun() {
+    if (dialog?.kind !== "run") return
+    setSubmitting(true)
+    setFormError(null)
+    try {
+      await apiPost(`/apis/draw/v1/admin/draws/${dialog.draw.id}/run`)
+      closeDialog()
+      await load()
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "Something went wrong")
+      setSubmitting(false)
+    }
+  }
+
+  async function handleReassign(event: React.FormEvent) {
+    event.preventDefault()
+    if (
+      dialog?.kind !== "reassign" ||
+      reassignTicketId.trim() === "" ||
+      reassignReason.trim() === ""
+    )
+      return
+    setSubmitting(true)
+    setFormError(null)
+    try {
+      await apiPost(`/apis/draw/v1/admin/draws/${dialog.draw.id}/reassign`, {
+        winner_ticket_id: reassignTicketId.trim(),
+        reason: reassignReason.trim(),
+      })
+      closeDialog()
+      await load()
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "Something went wrong")
+      setSubmitting(false)
+    }
   }
 
   return (
     <div className="space-y-6">
-      {/* Summary chips — a quick read on draw throughput. */}
-      <div className="flex flex-wrap gap-3">
-        <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm shadow-sm">
-          <Trophy className="size-4 text-botb-green" />
-          <span className="font-medium tabular-nums">{completedCount}</span>
-          <span className="text-muted-foreground">draws completed</span>
-        </span>
-        <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm shadow-sm">
-          <Sparkles className="size-4 text-primary" />
-          <span className="font-medium tabular-nums">{pendingCount}</span>
-          <span className="text-muted-foreground">awaiting draw</span>
-        </span>
+      {/* Summary chips + create action. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-3">
+          <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm shadow-sm">
+            <Trophy className="size-4 text-botb-green" />
+            <span className="font-medium tabular-nums">{drawnCount}</span>
+            <span className="text-muted-foreground">draws completed</span>
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm shadow-sm">
+            <Sparkles className="size-4 text-primary" />
+            <span className="font-medium tabular-nums">{pendingCount}</span>
+            <span className="text-muted-foreground">awaiting draw</span>
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm shadow-sm">
+            <Ban className="size-4 text-muted-foreground" />
+            <span className="font-medium tabular-nums">{voidCount}</span>
+            <span className="text-muted-foreground">voided</span>
+          </span>
+        </div>
+
+        <Button onClick={openCreate} className="shrink-0">
+          <Plus data-icon="inline-start" />
+          Create draw
+        </Button>
       </div>
 
-      {/* Pending draws surfaced as highlighted, actionable cards. */}
-      {pendingDraws.length > 0 && (
-        <section aria-label="Draws ready to run" className="space-y-3">
-          <h3 className="font-heading text-sm font-semibold tracking-tight">
-            Ready to draw
-          </h3>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {pendingDraws.map((draw) => (
-              <Card
-                key={draw.id}
-                className="gap-4 border-primary/30 bg-primary/[0.04] py-4"
-              >
-                <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="warning">Pending</Badge>
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <Calendar className="size-3.5" />
-                        {formatDate(draw.drawDate)}
-                      </span>
-                    </div>
-                    <p className="truncate font-medium">{draw.competition}</p>
-                    <p className="truncate text-sm text-muted-foreground">
-                      {draw.prize}
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => openRunDraw(draw.id)}
-                    className="shrink-0"
-                    aria-label={`Run draw for ${draw.competition}`}
-                  >
-                    <Play />
-                    Run draw
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Full draw history. */}
       <Card>
         <CardHeader>
           <CardTitle>Draw history</CardTitle>
         </CardHeader>
 
         <CardContent className="px-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="px-6">Competition</TableHead>
-                <TableHead>Winner</TableHead>
-                <TableHead>Prize</TableHead>
-                <TableHead className="text-right">Winning Ticket</TableHead>
-                <TableHead className="text-right">Draw Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="px-6 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {draws.map((draw) => {
-                const isCompleted = draw.status === "completed"
-                const isHighlighted = draw.id === recentlyDrawnId
-                return (
-                  <TableRow
-                    key={draw.id}
-                    className={cn(
-                      isHighlighted && "bg-botb-green/[0.07] hover:bg-botb-green/10"
-                    )}
-                  >
-                    <TableCell className="px-6 font-medium">
-                      {draw.competition}
-                    </TableCell>
-                    <TableCell>
-                      {isCompleted && draw.winner ? (
-                        <div className="flex items-center gap-3">
-                          <Avatar className="bg-primary/10">
-                            <AvatarFallback className="bg-transparent text-botb-orange-hover dark:text-primary">
-                              {getInitials(draw.winner)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="font-medium">{draw.winner}</span>
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Loading draws…
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center gap-2 py-16 text-sm text-destructive">
+              <AlertTriangle className="size-5" />
+              {error}
+            </div>
+          ) : draws.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-16 text-sm text-muted-foreground">
+              <Trophy className="size-6 text-muted-foreground/60" />
+              No draws yet.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="px-6">Competition</TableHead>
+                  <TableHead>Prize</TableHead>
+                  <TableHead>Winner</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Drawn At</TableHead>
+                  <TableHead className="px-6 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {draws.map((draw) => {
+                  const meta = STATUS_META[draw.status]
+                  return (
+                    <TableRow key={draw.id}>
+                      <TableCell className="px-6 font-medium">
+                        {competitionTitle(draw.competition_id)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {draw.prize}
+                      </TableCell>
+                      <TableCell>
+                        {draw.status === "drawn" ? (
+                          <div className="space-y-0.5 font-mono text-xs text-muted-foreground">
+                            <div>
+                              {draw.winner_ticket_id
+                                ? `Ticket ${draw.winner_ticket_id}`
+                                : "—"}
+                            </div>
+                            <div>
+                              {draw.winner_user_id
+                                ? `User ${draw.winner_user_id}`
+                                : "—"}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={meta.variant}>{meta.label}</Badge>
+                        {draw.status === "void" && draw.void_reason && (
+                          <p className="mt-1 max-w-48 text-xs text-muted-foreground">
+                            {draw.void_reason}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground tabular-nums">
+                        {formatDateTime(draw.drawn_at)}
+                      </TableCell>
+                      <TableCell className="px-6 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {draw.status === "pending" && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => openRun(draw)}
+                                aria-label={`Run draw for ${competitionTitle(draw.competition_id)}`}
+                              >
+                                <Play data-icon="inline-start" />
+                                Run
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => openEdit(draw)}
+                                aria-label={`Edit prize for ${competitionTitle(draw.competition_id)}`}
+                              >
+                                <Pencil />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => openVoid(draw)}
+                                className="text-muted-foreground hover:text-destructive"
+                                aria-label={`Void draw for ${competitionTitle(draw.competition_id)}`}
+                              >
+                                <Ban />
+                              </Button>
+                            </>
+                          )}
+                          {draw.status === "drawn" && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => openEdit(draw)}
+                                aria-label={`Edit prize for ${competitionTitle(draw.competition_id)}`}
+                              >
+                                <Pencil />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => openVoid(draw)}
+                                className="text-muted-foreground hover:text-destructive"
+                                aria-label={`Void draw for ${competitionTitle(draw.competition_id)}`}
+                              >
+                                <Ban />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => openReassign(draw)}
+                                className="text-muted-foreground hover:text-destructive"
+                                aria-label={`Reassign winner for ${competitionTitle(draw.competition_id)}`}
+                              >
+                                <ShieldAlert />
+                              </Button>
+                            </>
+                          )}
+                          {draw.status === "void" && (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">
-                          — Not drawn —
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {draw.prize}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {draw.ticketNumber !== null ? (
-                        <span className="inline-flex items-center justify-end gap-1.5">
-                          <Ticket className="size-3.5 text-muted-foreground" />
-                          #{formatNumber(draw.ticketNumber)}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground tabular-nums">
-                      {formatDate(draw.drawDate)}
-                    </TableCell>
-                    <TableCell>
-                      {isCompleted ? (
-                        <Badge variant="success">Completed</Badge>
-                      ) : (
-                        <Badge variant="warning">Pending</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-6 text-right">
-                      {isCompleted ? (
-                        <span className="text-sm text-muted-foreground">—</span>
-                      ) : (
-                        <Button
-                          size="sm"
-                          onClick={() => openRunDraw(draw.id)}
-                          aria-label={`Run draw for ${draw.competition}`}
-                        >
-                          <Play />
-                          Run draw
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
-      {/* Controlled run-draw dialog: confirm → drawing → success. */}
-      <Dialog open={activeDrawId !== null} onOpenChange={handleOpenChange}>
-        <DialogContent showCloseButton={phase !== "drawing"}>
-          {phase === "success" && result ? (
+      {/* Create draw dialog. */}
+      <Dialog
+        open={dialog?.kind === "create"}
+        onOpenChange={(open) => !open && closeDialog()}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create draw</DialogTitle>
+            <DialogDescription>
+              Set up a new pending draw for a competition. Run it once you&apos;re
+              ready to pick a winner.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="draw-competition">Competition</Label>
+              <Select
+                id="draw-competition"
+                value={createCompetitionId}
+                onChange={(event) => setCreateCompetitionId(event.target.value)}
+                required
+              >
+                {competitions.length === 0 && <option value="">No competitions</option>}
+                {competitions.map((competition) => (
+                  <option key={competition.id} value={competition.id}>
+                    {competition.title}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="draw-prize">Prize</Label>
+              <Input
+                id="draw-prize"
+                value={createPrize}
+                onChange={(event) => setCreatePrize(event.target.value)}
+                placeholder="Land Rover Defender D350 X"
+                required
+              />
+            </div>
+
+            {formError && (
+              <p className="text-sm text-destructive">{formError}</p>
+            )}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting || !createCompetitionId}>
+                {submitting ? <Loader2 className="animate-spin" /> : <Plus />}
+                Create draw
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit prize dialog. */}
+      <Dialog
+        open={dialog?.kind === "edit"}
+        onOpenChange={(open) => !open && closeDialog()}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit prize</DialogTitle>
+            <DialogDescription>
+              Update the prize description for this draw.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditPrize} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-prize">Prize</Label>
+              <Input
+                id="edit-prize"
+                value={editPrize}
+                onChange={(event) => setEditPrize(event.target.value)}
+                required
+              />
+            </div>
+
+            {formError && (
+              <p className="text-sm text-destructive">{formError}</p>
+            )}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting && <Loader2 className="animate-spin" />}
+                Save changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Void draw dialog. */}
+      <Dialog
+        open={dialog?.kind === "void"}
+        onOpenChange={(open) => !open && closeDialog()}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Void draw?</DialogTitle>
+            <DialogDescription>
+              This freezes the draw permanently — it can no longer be run or
+              edited. To re-draw, void this draw then create a new one.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleVoid} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="void-reason">Reason</Label>
+              <textarea
+                id="void-reason"
+                value={voidReason}
+                onChange={(event) => setVoidReason(event.target.value)}
+                placeholder="Explain why this draw is being voided…"
+                className="flex min-h-20 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30"
+                required
+              />
+            </div>
+
+            {formError && (
+              <p className="text-sm text-destructive">{formError}</p>
+            )}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={submitting || voidReason.trim() === ""}
+              >
+                {submitting && <Loader2 className="animate-spin" />}
+                Void draw
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Run draw confirmation dialog. */}
+      <Dialog
+        open={dialog?.kind === "run"}
+        onOpenChange={(open) => !open && closeDialog()}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <div className="mb-1 flex size-11 items-center justify-center rounded-full bg-primary/12 text-primary">
+              <Trophy className="size-5" />
+            </div>
+            <DialogTitle>Run this draw?</DialogTitle>
+            <DialogDescription>
+              A random winning ticket will be selected
+              {dialog?.kind === "run"
+                ? ` for “${competitionTitle(dialog.draw.competition_id)}”`
+                : ""}
+              . This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          {formError && (
+            <p className="text-sm text-destructive">{formError}</p>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeDialog}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleRun} disabled={submitting}>
+              {submitting ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <Play data-icon="inline-start" />
+              )}
+              Run draw
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reassign winner dialog — two-step confirmation. */}
+      <Dialog
+        open={dialog?.kind === "reassign"}
+        onOpenChange={(open) => !open && closeDialog()}
+      >
+        <DialogContent className="max-w-sm">
+          {reassignStep === 1 ? (
             <>
               <DialogHeader>
-                <div className="mb-1 flex size-11 items-center justify-center rounded-full bg-botb-green/12 text-botb-green">
-                  <PartyPopper className="size-5" />
+                <div className="mb-1 flex size-11 items-center justify-center rounded-full bg-destructive/12 text-destructive">
+                  <ShieldAlert className="size-5" />
                 </div>
-                <DialogTitle>Winner drawn!</DialogTitle>
+                <DialogTitle>Reassign winner?</DialogTitle>
                 <DialogDescription>
-                  {activeDraw
-                    ? `The draw for “${activeDraw.competition}” is complete.`
-                    : "The draw is complete."}
+                  This directly overrides the recorded winner for this draw and
+                  is audited. Prefer voiding and re-drawing when possible — only
+                  continue if you need to correct this specific draw&apos;s
+                  winner.
                 </DialogDescription>
               </DialogHeader>
-              <div className="rounded-lg border border-border bg-muted/50 p-4">
-                <div className="flex items-center gap-3">
-                  <Avatar className="size-10 bg-primary/10">
-                    <AvatarFallback className="bg-transparent text-botb-orange-hover dark:text-primary">
-                      {getInitials(result.winner)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <p className="font-medium">{result.winner}</p>
-                    <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground tabular-nums">
-                      <Ticket className="size-3.5" />
-                      Ticket #{formatNumber(result.ticketNumber)}
-                    </p>
-                  </div>
-                </div>
-              </div>
+
               <DialogFooter>
-                <Button onClick={closeDialog}>
-                  <Check />
-                  Done
+                <Button type="button" variant="outline" onClick={closeDialog}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => setReassignStep(2)}
+                >
+                  Continue
                 </Button>
               </DialogFooter>
             </>
           ) : (
             <>
               <DialogHeader>
-                <div className="mb-1 flex size-11 items-center justify-center rounded-full bg-primary/12 text-primary">
-                  {phase === "drawing" ? (
-                    <Loader2 className="size-5 animate-spin" />
-                  ) : (
-                    <Trophy className="size-5" />
-                  )}
-                </div>
-                <DialogTitle>
-                  {phase === "drawing" ? "Drawing a winner…" : "Run this draw?"}
-                </DialogTitle>
+                <DialogTitle>Reassign winner</DialogTitle>
                 <DialogDescription>
-                  {phase === "drawing"
-                    ? "Selecting a random winning ticket. This only takes a moment."
-                    : activeDraw
-                      ? `A random winning ticket will be selected for “${activeDraw.competition}”. This can’t be undone.`
-                      : "A random winning ticket will be selected. This can’t be undone."}
+                  Provide the new winning ticket and a reason for the audit
+                  log.
                 </DialogDescription>
               </DialogHeader>
-              {activeDraw && (
-                <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Prize</span>
-                    <span className="font-medium">{activeDraw.prize}</span>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Draw date</span>
-                    <span className="font-medium tabular-nums">
-                      {formatDate(activeDraw.drawDate)}
-                    </span>
-                  </div>
+
+              <form onSubmit={handleReassign} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reassign-ticket">Winning ticket ID</Label>
+                  <Input
+                    id="reassign-ticket"
+                    value={reassignTicketId}
+                    onChange={(event) => setReassignTicketId(event.target.value)}
+                    placeholder="Ticket ID"
+                    required
+                  />
                 </div>
-              )}
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={closeDialog}
-                  disabled={phase === "drawing"}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={confirmDraw} disabled={phase === "drawing"}>
-                  {phase === "drawing" ? (
-                    <>
-                      <Loader2 className="animate-spin" />
-                      Drawing…
-                    </>
-                  ) : (
-                    <>
-                      <Play />
-                      Run draw
-                    </>
-                  )}
-                </Button>
-              </DialogFooter>
+
+                <div className="space-y-2">
+                  <Label htmlFor="reassign-reason">Reason</Label>
+                  <textarea
+                    id="reassign-reason"
+                    value={reassignReason}
+                    onChange={(event) => setReassignReason(event.target.value)}
+                    placeholder="Explain why the winner is being reassigned…"
+                    className="flex min-h-20 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30"
+                    required
+                  />
+                </div>
+
+                {formError && (
+                  <p className="text-sm text-destructive">{formError}</p>
+                )}
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={closeDialog}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="destructive"
+                    disabled={
+                      submitting ||
+                      reassignTicketId.trim() === "" ||
+                      reassignReason.trim() === ""
+                    }
+                  >
+                    {submitting && <Loader2 className="animate-spin" />}
+                    Reassign winner
+                  </Button>
+                </DialogFooter>
+              </form>
             </>
           )}
         </DialogContent>

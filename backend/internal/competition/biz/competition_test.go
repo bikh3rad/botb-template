@@ -1,13 +1,14 @@
 package biz_test
 
 import (
-	"application/internal/competition/biz"
-	"application/internal/competition/entity"
-	"application/internal/competition/mocks"
 	"context"
 	"io"
 	"log/slog"
 	"testing"
+
+	"application/internal/competition/biz"
+	"application/internal/competition/entity"
+	"application/internal/competition/mocks"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
@@ -91,18 +92,103 @@ func TestUpdate_InvalidStatus(t *testing.T) {
 	require.ErrorIs(t, err, biz.ErrResourceInvalid)
 }
 
-func TestUpdate_Success(t *testing.T) {
+func fullUpdate(status entity.Status) biz.UpdateInput {
+	return biz.UpdateInput{
+		Title:            "New Title",
+		Slug:             "new-title",
+		Description:      "desc",
+		Prize:            "Car",
+		TicketPricePence: 125,
+		TicketsTotal:     1000,
+		Status:           status,
+	}
+}
+
+func TestUpdate_Success_AllFields(t *testing.T) {
 	id := uuid.New()
+	catID := uuid.New()
 	repo := mocks.NewMockRepository(t)
+	repo.EXPECT().Get(mock.Anything, id).Return(entity.Competition{
+		ID: id, Title: "Old", Status: entity.StatusLive, TicketsSold: 10,
+	}, nil)
 	repo.EXPECT().Update(mock.Anything, mock.MatchedBy(func(c entity.Competition) bool {
-		return c.ID == id && c.Title == "New Title"
+		return c.ID == id && c.Title == "New Title" && c.Slug == "new-title" &&
+			c.CategoryID != nil && *c.CategoryID == catID
 	})).Return(entity.Competition{ID: id, Title: "New Title", Status: entity.StatusLive}, nil)
 
 	uc := biz.NewCompetition(discardLogger(), repo)
 
-	got, err := uc.Update(context.Background(), id, biz.UpdateInput{Title: "New Title", Status: entity.StatusLive})
+	in := fullUpdate(entity.StatusLive)
+	in.CategoryID = &catID
+
+	got, err := uc.Update(context.Background(), id, in)
 	require.NoError(t, err)
 	require.Equal(t, "New Title", got.Title)
+}
+
+// Status may only move forward: draft->live->closed. Everything else is a 422.
+func TestUpdate_StatusTransitions(t *testing.T) {
+	cases := []struct {
+		from, to entity.Status
+		ok       bool
+	}{
+		{entity.StatusDraft, entity.StatusDraft, true},
+		{entity.StatusDraft, entity.StatusLive, true},
+		{entity.StatusDraft, entity.StatusClosed, false},
+		{entity.StatusLive, entity.StatusLive, true},
+		{entity.StatusLive, entity.StatusClosed, true},
+		{entity.StatusLive, entity.StatusDraft, false},
+		{entity.StatusClosed, entity.StatusClosed, true},
+		{entity.StatusClosed, entity.StatusLive, false},
+		{entity.StatusClosed, entity.StatusDraft, false},
+	}
+
+	for _, tc := range cases {
+		id := uuid.New()
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().Get(mock.Anything, id).Return(entity.Competition{
+			ID: id, Status: tc.from,
+		}, nil)
+
+		if tc.ok {
+			repo.EXPECT().Update(mock.Anything, mock.Anything).
+				Return(entity.Competition{ID: id, Status: tc.to}, nil)
+		}
+
+		uc := biz.NewCompetition(discardLogger(), repo)
+
+		_, err := uc.Update(context.Background(), id, fullUpdate(tc.to))
+		if tc.ok {
+			require.NoError(t, err, "%s -> %s", tc.from, tc.to)
+		} else {
+			require.ErrorIs(t, err, biz.ErrInvalidTransition, "%s -> %s", tc.from, tc.to)
+		}
+	}
+}
+
+// tickets_total may never drop below tickets already sold.
+func TestUpdate_TotalBelowSoldRejected(t *testing.T) {
+	id := uuid.New()
+	repo := mocks.NewMockRepository(t)
+	repo.EXPECT().Get(mock.Anything, id).Return(entity.Competition{
+		ID: id, Status: entity.StatusLive, TicketsSold: 5000,
+	}, nil)
+
+	uc := biz.NewCompetition(discardLogger(), repo)
+
+	_, err := uc.Update(context.Background(), id, fullUpdate(entity.StatusLive))
+	require.ErrorIs(t, err, biz.ErrResourceInvalid)
+}
+
+func TestUpdate_BadSlugRejected(t *testing.T) {
+	repo := mocks.NewMockRepository(t)
+	uc := biz.NewCompetition(discardLogger(), repo)
+
+	in := fullUpdate(entity.StatusLive)
+	in.Slug = "Not A Slug!"
+
+	_, err := uc.Update(context.Background(), uuid.New(), in)
+	require.ErrorIs(t, err, biz.ErrResourceInvalid)
 }
 
 func TestDelete(t *testing.T) {

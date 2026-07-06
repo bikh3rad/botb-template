@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 
 import { AdminShell } from "@/components/admin/AdminShell"
+import { AdminAuthProvider } from "@/lib/admin/auth-context"
 
 export const metadata: Metadata = {
   title: "Admin Console | Competitions Platform",
@@ -11,5 +12,9 @@ export const metadata: Metadata = {
 export default function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return <AdminShell>{children}</AdminShell>
+  return (
+    <AdminAuthProvider>
+      <AdminShell>{children}</AdminShell>
+    </AdminAuthProvider>
+  )
 }

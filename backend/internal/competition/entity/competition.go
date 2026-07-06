@@ -49,6 +49,8 @@ type Competition struct {
 	TicketPricePence int64      `json:"ticket_price_pence"`
 	TicketsTotal     int64      `json:"tickets_total"`
 	TicketsSold      int64      `json:"tickets_sold"`
+	CategoryID       *uuid.UUID `json:"category_id,omitempty"`
+	CategoryName     string     `json:"category_name,omitempty"`
 	Status           Status     `json:"status"`
 	StartsAt         time.Time  `json:"starts_at"`
 	EndsAt           time.Time  `json:"ends_at"`

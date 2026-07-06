@@ -1,16 +1,17 @@
 package repo_test
 
 import (
-	"application/internal/competition/biz"
-	"application/internal/competition/entity"
-	"application/internal/competition/repo"
-	"application/internal/datasource"
 	"context"
 	"database/sql"
 	"io"
 	"log/slog"
 	"testing"
 	"time"
+
+	"application/internal/competition/biz"
+	"application/internal/competition/entity"
+	"application/internal/competition/repo"
+	"application/internal/datasource"
 
 	"github.com/google/uuid"
 	_ "github.com/proullon/ramsql/driver"
@@ -39,6 +40,7 @@ func newRamsqlDB(t *testing.T) *datasource.PostgresDB {
 		ticket_price_pence BIGINT,
 		tickets_total BIGINT,
 		tickets_sold BIGINT,
+		category_id TEXT,
 		status TEXT,
 		starts_at TIMESTAMP,
 		ends_at TIMESTAMP,
@@ -64,6 +66,14 @@ func newRamsqlDB(t *testing.T) *datasource.PostgresDB {
 	)`)
 	require.NoError(t, err)
 
+	_, err = db.ExecContext(ctx, `CREATE TABLE categories (
+		id TEXT PRIMARY KEY,
+		name TEXT,
+		slug TEXT,
+		created_at TIMESTAMP
+	)`)
+	require.NoError(t, err)
+
 	return &datasource.PostgresDB{DB: db}
 }
 
@@ -72,10 +82,11 @@ func seedCompetition(t *testing.T, db *datasource.PostgresDB, id uuid.UUID, slug
 
 	now := time.Now().UTC()
 
-	_, err := db.ExecContext(context.Background(), `INSERT INTO competitions
+	_, err := db.ExecContext(
+		context.Background(), `INSERT INTO competitions
 		(id, title, slug, description, prize, ticket_price_pence, tickets_total,
-		 tickets_sold, status, starts_at, ends_at, created_at, updated_at)
-		VALUES ($1,$2,$3,'','Prize',125,1000,0,$4,$5,$6,$7,$8)`,
+		 tickets_sold, category_id, status, starts_at, ends_at, created_at, updated_at)
+		VALUES ($1,$2,$3,'','Prize',125,1000,0,NULL,$4,$5,$6,$7,$8)`,
 		id.String(), "Title "+slug, slug, status, now, now, now, now,
 	)
 	require.NoError(t, err)
@@ -84,7 +95,8 @@ func seedCompetition(t *testing.T, db *datasource.PostgresDB, id uuid.UUID, slug
 func seedMedia(t *testing.T, db *datasource.PostgresDB, ownerID uuid.UUID, position int) {
 	t.Helper()
 
-	_, err := db.ExecContext(context.Background(), `INSERT INTO media
+	_, err := db.ExecContext(
+		context.Background(), `INSERT INTO media
 		(id, owner_type, owner_id, kind, bucket, object_key, content_type,
 		 size_bytes, width, height, duration_seconds, position, created_at)
 		VALUES ($1,'competition',$2,'image','botb-media','k','image/png',1,0,0,NULL,$3, NOW())`,

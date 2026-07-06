@@ -1,13 +1,14 @@
 package biz_test
 
 import (
-	"application/internal/user/biz"
-	"application/internal/user/entity"
-	"application/internal/user/mocks"
 	"context"
 	"io"
 	"log/slog"
 	"testing"
+
+	"application/internal/user/biz"
+	"application/internal/user/entity"
+	"application/internal/user/mocks"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
@@ -85,4 +86,28 @@ func TestGet_PassesThrough(t *testing.T) {
 	got, err := uc.Get(context.Background(), id)
 	require.NoError(t, err)
 	require.Equal(t, id, got.ID)
+}
+
+func TestUpdate_ValidatesEmail(t *testing.T) {
+	repo := mocks.NewMockRepositoryUser(t)
+	uc := biz.NewUser(discardLogger(), repo)
+
+	_, err := uc.Update(context.Background(), uuid.New(), "Name", "not-an-email")
+	require.ErrorIs(t, err, biz.ErrResourceInvalid)
+
+	_, err = uc.Update(context.Background(), uuid.New(), "", "a@b.co")
+	require.ErrorIs(t, err, biz.ErrResourceInvalid)
+}
+
+func TestUpdate_NormalizesAndDelegates(t *testing.T) {
+	id := uuid.New()
+	repo := mocks.NewMockRepositoryUser(t)
+	repo.EXPECT().Update(mock.Anything, id, "Sam", "sam@example.com").
+		Return(entity.User{ID: id, Name: "Sam", Email: "sam@example.com", IsActive: true}, nil)
+
+	uc := biz.NewUser(discardLogger(), repo)
+
+	got, err := uc.Update(context.Background(), id, " Sam ", " SAM@Example.com ")
+	require.NoError(t, err)
+	require.Equal(t, "sam@example.com", got.Email)
 }

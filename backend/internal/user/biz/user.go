@@ -1,10 +1,11 @@
 package biz
 
 import (
-	"application/internal/user/entity"
 	"context"
 	"log/slog"
 	"strings"
+
+	"application/internal/user/entity"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
@@ -73,6 +74,31 @@ func (uc *user) List(ctx context.Context, filter UserListFilter) (UserPage, erro
 
 func (uc *user) Get(ctx context.Context, id uuid.UUID) (entity.User, error) {
 	return uc.repo.Get(ctx, id)
+}
+
+// Update edits the admin-editable profile fields (name, email). Email is
+// normalized and validated; a duplicate maps to ErrResourceExists (409).
+func (uc *user) Update(ctx context.Context, id uuid.UUID, name, email string) (entity.User, error) {
+	ctx, span := uc.tracer.Start(ctx, "Update")
+	defer span.End()
+
+	name = strings.TrimSpace(name)
+	email = strings.TrimSpace(strings.ToLower(email))
+
+	if name == "" || !validEmail(email) {
+		return entity.User{}, ErrResourceInvalid
+	}
+
+	return uc.repo.Update(ctx, id, name, email)
+}
+
+// SetActive suspends (false) or reactivates (true) a user. Suspension is the
+// soft alternative to deletion: history stays, purchases are blocked.
+func (uc *user) SetActive(ctx context.Context, id uuid.UUID, active bool) (entity.User, error) {
+	ctx, span := uc.tracer.Start(ctx, "SetActive")
+	defer span.End()
+
+	return uc.repo.SetActive(ctx, id, active)
 }
 
 // validEmail is a deliberately minimal check — enough to reject obvious junk

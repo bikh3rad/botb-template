@@ -1,14 +1,18 @@
 package dto
 
 import (
+	"time"
+
 	"application/internal/competition/biz"
 	"application/internal/competition/entity"
-	"time"
+
+	"github.com/google/uuid"
 )
 
 const rfc3339 = "2006-01-02T15:04:05Z07:00"
 
-// CompetitionReq is the create/update request body (admin).
+// CompetitionReq is the create/update request body (admin). tickets_sold is
+// deliberately NOT accepted — it is derived from purchases.
 type CompetitionReq struct {
 	Title            string `json:"title"`
 	Slug             string `json:"slug,omitempty"`
@@ -16,14 +20,34 @@ type CompetitionReq struct {
 	Prize            string `json:"prize"`
 	TicketPricePence int64  `json:"ticket_price_pence"`
 	TicketsTotal     int64  `json:"tickets_total"`
+	CategoryID       string `json:"category_id,omitempty"`
 	Status           string `json:"status"`
 	StartsAt         string `json:"starts_at"`
 	EndsAt           string `json:"ends_at"`
 }
 
+// parseCategoryID maps the optional category_id field ("" = none).
+func (r CompetitionReq) parseCategoryID() (*uuid.UUID, error) {
+	if r.CategoryID == "" {
+		return nil, nil
+	}
+
+	id, err := uuid.Parse(r.CategoryID)
+	if err != nil {
+		return nil, biz.ErrResourceInvalid
+	}
+
+	return &id, nil
+}
+
 // ToCreateInput maps the request to a biz.CreateInput, parsing timestamps.
 func (r CompetitionReq) ToCreateInput() (biz.CreateInput, error) {
 	starts, ends, err := parseWindow(r.StartsAt, r.EndsAt)
+	if err != nil {
+		return biz.CreateInput{}, err
+	}
+
+	categoryID, err := r.parseCategoryID()
 	if err != nil {
 		return biz.CreateInput{}, err
 	}
@@ -35,6 +59,7 @@ func (r CompetitionReq) ToCreateInput() (biz.CreateInput, error) {
 		Prize:            r.Prize,
 		TicketPricePence: r.TicketPricePence,
 		TicketsTotal:     r.TicketsTotal,
+		CategoryID:       categoryID,
 		Status:           entity.Status(r.Status),
 		StartsAt:         starts,
 		EndsAt:           ends,
@@ -48,12 +73,19 @@ func (r CompetitionReq) ToUpdateInput() (biz.UpdateInput, error) {
 		return biz.UpdateInput{}, err
 	}
 
+	categoryID, err := r.parseCategoryID()
+	if err != nil {
+		return biz.UpdateInput{}, err
+	}
+
 	return biz.UpdateInput{
 		Title:            r.Title,
+		Slug:             r.Slug,
 		Description:      r.Description,
 		Prize:            r.Prize,
 		TicketPricePence: r.TicketPricePence,
 		TicketsTotal:     r.TicketsTotal,
+		CategoryID:       categoryID,
 		Status:           entity.Status(r.Status),
 		StartsAt:         starts,
 		EndsAt:           ends,
@@ -98,6 +130,8 @@ type CompetitionResp struct {
 	TicketPricePence int64          `json:"ticket_price_pence"`
 	TicketsTotal     int64          `json:"tickets_total"`
 	TicketsSold      int64          `json:"tickets_sold"`
+	CategoryID       string         `json:"category_id,omitempty"`
+	CategoryName     string         `json:"category_name,omitempty"`
 	Status           string         `json:"status"`
 	StartsAt         string         `json:"starts_at"`
 	EndsAt           string         `json:"ends_at"`
@@ -120,6 +154,11 @@ func ToCompetitionResp(c entity.Competition) CompetitionResp {
 		})
 	}
 
+	categoryID := ""
+	if c.CategoryID != nil {
+		categoryID = c.CategoryID.String()
+	}
+
 	return CompetitionResp{
 		ID:               c.ID.String(),
 		Title:            c.Title,
@@ -129,6 +168,8 @@ func ToCompetitionResp(c entity.Competition) CompetitionResp {
 		TicketPricePence: c.TicketPricePence,
 		TicketsTotal:     c.TicketsTotal,
 		TicketsSold:      c.TicketsSold,
+		CategoryID:       categoryID,
+		CategoryName:     c.CategoryName,
 		Status:           string(c.Status),
 		StartsAt:         formatTime(c.StartsAt),
 		EndsAt:           formatTime(c.EndsAt),

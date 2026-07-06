@@ -9,6 +9,16 @@ import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { adminNav } from "@/lib/admin-data"
 import { AdminSidebar } from "@/components/admin/AdminSidebar"
+import { useAdminAuth } from "@/lib/admin/auth-context"
+
+/** Two-letter initials from a name, e.g. "Ada Lovelace" -> "AL". */
+function initials(name: string | undefined): string {
+  if (!name) return "AD"
+  const parts = name.trim().split(/\s+/)
+  const first = parts[0]?.[0] ?? ""
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : ""
+  return (first + last).toUpperCase() || "AD"
+}
 
 function usePageTitle(): string {
   const pathname = usePathname()
@@ -31,6 +41,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     setMobileOpen(false)
   }, [pathname])
+
+  // The login page owns its own full-screen layout — render it without the
+  // authenticated console chrome.
+  if (pathname === "/admin/login") {
+    return <>{children}</>
+  }
 
   return (
     <div className="min-h-screen bg-muted/40 text-foreground">
@@ -97,15 +113,22 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <span className="absolute top-2 right-2 size-2 rounded-full bg-primary ring-2 ring-background" />
           </Button>
 
-          <Avatar className="bg-primary/10">
-            <AvatarFallback className="bg-transparent text-botb-orange-hover dark:text-primary">
-              AD
-            </AvatarFallback>
-          </Avatar>
+          <AdminAvatar />
         </header>
 
         <main className="p-4 sm:p-6">{children}</main>
       </div>
     </div>
+  )
+}
+
+function AdminAvatar() {
+  const { admin } = useAdminAuth()
+  return (
+    <Avatar className="bg-primary/10" title={admin?.email}>
+      <AvatarFallback className="bg-transparent text-botb-orange-hover dark:text-primary">
+        {initials(admin?.name)}
+      </AvatarFallback>
+    </Avatar>
   )
 }

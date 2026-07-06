@@ -1,10 +1,11 @@
 package dto
 
 import (
-	"application/internal/media/biz"
 	"encoding/json"
 	"errors"
 	"net/http"
+
+	"application/internal/media/biz"
 )
 
 // ErrorResponse is the standard error envelope for the media API.

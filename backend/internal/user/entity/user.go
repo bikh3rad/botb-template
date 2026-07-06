@@ -13,6 +13,7 @@ type User struct {
 	Email           string    `json:"email"`
 	TicketsOwned    int64     `json:"tickets_owned"`
 	TotalSpentPence int64     `json:"total_spent_pence"`
+	IsActive        bool      `json:"is_active"`
 	CreatedAt       time.Time `json:"created_at"`
 }
 

@@ -76,8 +76,15 @@ func wireApp(ctx context.Context) (app.Application, error) {
 		return nil, err
 	}
 	jwtAuth := middlewares.NewJWTAuth(jwtSecret)
-	handlerCompetition := handler2.NewCompetition(logger, serveMux, bizCompetition, jwtAuth)
-	v := handler2.NewServiceList(healthzHandler, handlerCompetition)
+	recorder := handler2.NewAuditRecorder(logger, postgresDB)
+	handlerCompetition := handler2.NewCompetition(logger, serveMux, bizCompetition, jwtAuth, recorder)
+	category := repo.NewCategory(logger, postgresDB)
+	bizCategory := biz2.NewCategory(logger, category)
+	handlerCategory := handler2.NewCategoryHandler(logger, serveMux, bizCategory, jwtAuth, recorder)
+	content := repo.NewContent(logger, postgresDB)
+	bizContent := biz2.NewContent(logger, content)
+	handlerContent := handler2.NewContentHandler(logger, serveMux, bizContent, jwtAuth, recorder)
+	v := handler2.NewServiceList(healthzHandler, handlerCompetition, handlerCategory, handlerContent)
 	httpHandler, err := service.NewHTTPHandler(ctx, logger, serveMux, v...)
 	if err != nil {
 		return nil, err

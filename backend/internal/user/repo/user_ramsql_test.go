@@ -1,15 +1,16 @@
 package repo_test
 
 import (
-	"application/internal/datasource"
-	"application/internal/user/biz"
-	"application/internal/user/repo"
 	"context"
 	"database/sql"
 	"io"
 	"log/slog"
 	"testing"
 	"time"
+
+	"application/internal/datasource"
+	"application/internal/user/biz"
+	"application/internal/user/repo"
 
 	"github.com/google/uuid"
 	_ "github.com/proullon/ramsql/driver"
@@ -28,7 +29,7 @@ func newRamsqlDB(t *testing.T) *datasource.PostgresDB {
 	stmts := []string{
 		`CREATE TABLE users (
 			id TEXT PRIMARY KEY, name TEXT, email TEXT,
-			tickets_owned BIGINT, total_spent_pence BIGINT, created_at TIMESTAMP)`,
+			tickets_owned BIGINT, total_spent_pence BIGINT, is_active BOOLEAN, created_at TIMESTAMP)`,
 		`CREATE TABLE tickets (
 			id TEXT PRIMARY KEY, competition_id TEXT, user_id TEXT, purchased_at TIMESTAMP)`,
 		`CREATE TABLE competitions (id TEXT PRIMARY KEY, ticket_price_pence BIGINT)`,
@@ -44,9 +45,10 @@ func newRamsqlDB(t *testing.T) *datasource.PostgresDB {
 func seedUser(t *testing.T, db *datasource.PostgresDB, id uuid.UUID, name, email string) {
 	t.Helper()
 
-	_, err := db.ExecContext(context.Background(),
-		`INSERT INTO users (id, name, email, tickets_owned, total_spent_pence, created_at)
-			VALUES ($1, $2, $3, 0, 0, $4)`,
+	_, err := db.ExecContext(
+		context.Background(),
+		`INSERT INTO users (id, name, email, tickets_owned, total_spent_pence, is_active, created_at)
+			VALUES ($1, $2, $3, 0, 0, true, $4)`,
 		id.String(), name, email, time.Now().UTC(),
 	)
 	require.NoError(t, err)
@@ -111,4 +113,42 @@ func TestTicket_Purchase_CompetitionNotFound(t *testing.T) {
 
 	_, err := tr.Purchase(ctx, biz.PurchaseInput{CompetitionID: uuid.New(), UserID: userID, Quantity: 1})
 	require.ErrorIs(t, err, biz.ErrCompetitionNotFound)
+}
+
+// A suspended user must not be able to purchase — the guard lives inside the
+// purchase transaction.
+func TestTicket_Purchase_SuspendedUserRejected(t *testing.T) {
+	db := newRamsqlDB(t)
+	ctx := context.Background()
+
+	userID := uuid.New()
+	compID := uuid.New()
+	seedUser(t, db, userID, "Sam", "sam@example.com")
+	_, err := db.ExecContext(ctx, `UPDATE users SET is_active = $1 WHERE id = $2`, false, userID.String())
+	require.NoError(t, err)
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO competitions (id, ticket_price_pence) VALUES ($1, 125)`, compID.String())
+	require.NoError(t, err)
+
+	_, err = ticketRepo(db).Purchase(ctx, biz.PurchaseInput{
+		CompetitionID: compID, UserID: userID, Quantity: 1,
+	})
+	require.ErrorIs(t, err, biz.ErrUserSuspended)
+}
+
+func TestUser_UpdateAndSetActive(t *testing.T) {
+	db := newRamsqlDB(t)
+	ctx := context.Background()
+
+	id := uuid.New()
+	seedUser(t, db, id, "Old Name", "old@example.com")
+
+	updated, err := userRepo(db).Update(ctx, id, "New Name", "new@example.com")
+	require.NoError(t, err)
+	require.Equal(t, "New Name", updated.Name)
+	require.Equal(t, "new@example.com", updated.Email)
+
+	suspended, err := userRepo(db).SetActive(ctx, id, false)
+	require.NoError(t, err)
+	require.False(t, suspended.IsActive)
 }
