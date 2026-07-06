@@ -35,3 +35,6 @@ __debug_*
 
 # Local compose env
 .env
+
+# stray compiled seed binary (build artifact)
+/seed
