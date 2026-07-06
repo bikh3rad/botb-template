@@ -1,15 +1,16 @@
 package gateway
 
 import (
-	"application/app"
-	"application/internal/service"
-	"application/pkg/middlewares"
 	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
+
+	"application/app"
+	"application/internal/service"
+	"application/pkg/middlewares"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )

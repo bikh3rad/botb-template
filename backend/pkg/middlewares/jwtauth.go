@@ -1,11 +1,12 @@
 package middlewares
 
 import (
-	"application/app"
 	"context"
 	"errors"
 	"net/http"
 	"strings"
+
+	"application/app"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/wire"

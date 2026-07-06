@@ -5,11 +5,12 @@
 package audit
 
 import (
-	"application/pkg/middlewares"
 	"context"
 	"database/sql"
 	"log/slog"
 	"time"
+
+	"application/pkg/middlewares"
 
 	"github.com/google/uuid"
 )
@@ -61,7 +62,8 @@ func (r *Recorder) Record(ctx context.Context, e Entry) {
 		}
 	}
 
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.db.ExecContext(
+		ctx,
 		`INSERT INTO admin_audit_log (id, actor_id, actor_email, action, entity_type, entity_id, reason, created_at)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		uuid.New(), e.ActorID, e.ActorEmail, e.Action, e.EntityType, e.EntityID, e.Reason, time.Now().UTC(),

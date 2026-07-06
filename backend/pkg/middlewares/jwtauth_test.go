@@ -1,12 +1,13 @@
 package middlewares_test
 
 import (
-	"application/pkg/middlewares"
 	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"application/pkg/middlewares"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"

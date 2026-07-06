@@ -1,11 +1,12 @@
 package middlewares
 
 import (
-	"application/internal/service/dto"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"runtime/debug"
+
+	"application/internal/service/dto"
 )
 
 type RecoverMiddleware struct {

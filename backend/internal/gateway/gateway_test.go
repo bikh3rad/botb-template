@@ -2,7 +2,6 @@
 package gateway
 
 import (
-	"application/pkg/middlewares"
 	"context"
 	"io"
 	"log/slog"
@@ -10,6 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"application/pkg/middlewares"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
