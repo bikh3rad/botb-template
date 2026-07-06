@@ -34,6 +34,7 @@ type Draw struct {
 	WinnerTicketID *uuid.UUID `json:"winner_ticket_id,omitempty"`
 	Prize          string     `json:"prize"`
 	Status         Status     `json:"status"`
+	VoidReason     string     `json:"void_reason,omitempty"`
 	DrawnAt        *time.Time `json:"drawn_at,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`

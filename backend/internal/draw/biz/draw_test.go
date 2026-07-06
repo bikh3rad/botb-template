@@ -1,13 +1,14 @@
 package biz_test
 
 import (
-	"application/internal/draw/biz"
-	"application/internal/draw/entity"
-	"application/internal/draw/mocks"
 	"context"
 	"io"
 	"log/slog"
 	"testing"
+
+	"application/internal/draw/biz"
+	"application/internal/draw/entity"
+	"application/internal/draw/mocks"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
@@ -126,4 +127,54 @@ func TestList_DefaultsAndCaps(t *testing.T) {
 
 	_, err := uc.List(context.Background(), biz.ListFilter{Limit: 0, Offset: -3})
 	require.NoError(t, err)
+}
+
+func TestVoid_RequiresReason(t *testing.T) {
+	uc := biz.NewDraw(discardLogger(), mocks.NewMockRepository(t))
+
+	_, err := uc.Void(context.Background(), uuid.New(), "   ")
+	require.ErrorIs(t, err, biz.ErrReasonRequired)
+}
+
+func TestVoid_DelegatesWithReason(t *testing.T) {
+	id := uuid.New()
+	repo := mocks.NewMockRepository(t)
+	repo.EXPECT().Void(mock.Anything, id, "winner unreachable").
+		Return(entity.Draw{ID: id, Status: entity.StatusVoid, VoidReason: "winner unreachable"}, nil)
+
+	uc := biz.NewDraw(discardLogger(), repo)
+
+	got, err := uc.Void(context.Background(), id, "winner unreachable")
+	require.NoError(t, err)
+	require.Equal(t, entity.StatusVoid, got.Status)
+}
+
+func TestReassign_RequiresReason(t *testing.T) {
+	uc := biz.NewDraw(discardLogger(), mocks.NewMockRepository(t))
+
+	_, err := uc.Reassign(context.Background(), uuid.New(), uuid.New(), "")
+	require.ErrorIs(t, err, biz.ErrReasonRequired)
+}
+
+func TestUpdatePrize_VoidDrawFrozen(t *testing.T) {
+	id := uuid.New()
+	repo := mocks.NewMockRepository(t)
+	repo.EXPECT().Get(mock.Anything, id).Return(entity.Draw{ID: id, Status: entity.StatusVoid}, nil)
+
+	uc := biz.NewDraw(discardLogger(), repo)
+
+	_, err := uc.UpdatePrize(context.Background(), id, "New prize")
+	require.ErrorIs(t, err, biz.ErrInvalidState)
+}
+
+// Void draws are hidden from the public read alongside pending ones.
+func TestGetPublic_HidesVoid(t *testing.T) {
+	id := uuid.New()
+	repo := mocks.NewMockRepository(t)
+	repo.EXPECT().Get(mock.Anything, id).Return(entity.Draw{ID: id, Status: entity.StatusVoid}, nil)
+
+	uc := biz.NewDraw(discardLogger(), repo)
+
+	_, err := uc.GetPublic(context.Background(), id)
+	require.ErrorIs(t, err, biz.ErrResourceNotFound)
 }

@@ -1,9 +1,11 @@
 package biz
 
 import (
-	"application/internal/draw/entity"
 	"context"
 	"log/slog"
+	"strings"
+
+	"application/internal/draw/entity"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
@@ -52,14 +54,15 @@ func (uc *draw) Get(ctx context.Context, id uuid.UUID) (entity.Draw, error) {
 	return uc.repo.Get(ctx, id)
 }
 
-// GetPublic hides pending draws from public callers.
+// GetPublic hides pending AND void draws from public callers — a voided
+// result must not show a winner.
 func (uc *draw) GetPublic(ctx context.Context, id uuid.UUID) (entity.Draw, error) {
 	d, err := uc.repo.Get(ctx, id)
 	if err != nil {
 		return entity.Draw{}, err
 	}
 
-	if d.Status == entity.StatusPending {
+	if d.Status != entity.StatusDrawn {
 		return entity.Draw{}, ErrResourceNotFound
 	}
 
@@ -93,4 +96,67 @@ func (uc *draw) Run(ctx context.Context, id uuid.UUID) (entity.Draw, error) {
 	}
 
 	return uc.repo.Run(ctx, id)
+}
+
+const maxReasonLength = 500
+
+// UpdatePrize edits the prize text; void draws are frozen.
+func (uc *draw) UpdatePrize(ctx context.Context, id uuid.UUID, prize string) (entity.Draw, error) {
+	ctx, span := uc.tracer.Start(ctx, "UpdatePrize")
+	defer span.End()
+
+	if id == uuid.Nil || prize == "" {
+		return entity.Draw{}, ErrResourceInvalid
+	}
+
+	current, err := uc.repo.Get(ctx, id)
+	if err != nil {
+		return entity.Draw{}, err
+	}
+
+	if current.Status == entity.StatusVoid {
+		return entity.Draw{}, ErrInvalidState
+	}
+
+	return uc.repo.UpdatePrize(ctx, id, prize)
+}
+
+// Void marks a draw void. Reason is REQUIRED (sensitive mutation) and is
+// stored on the row and in the audit trail.
+func (uc *draw) Void(ctx context.Context, id uuid.UUID, reason string) (entity.Draw, error) {
+	ctx, span := uc.tracer.Start(ctx, "Void")
+	defer span.End()
+
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return entity.Draw{}, ErrReasonRequired
+	}
+
+	if len(reason) > maxReasonLength {
+		return entity.Draw{}, ErrResourceInvalid
+	}
+
+	return uc.repo.Void(ctx, id, reason)
+}
+
+// Reassign directly changes a drawn draw's winner. Requires a reason (the
+// handler writes it to the audit trail); the repo validates ticket ownership.
+func (uc *draw) Reassign(ctx context.Context, id uuid.UUID, ticketID uuid.UUID, reason string) (entity.Draw, error) {
+	ctx, span := uc.tracer.Start(ctx, "Reassign")
+	defer span.End()
+
+	if id == uuid.Nil || ticketID == uuid.Nil {
+		return entity.Draw{}, ErrResourceInvalid
+	}
+
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return entity.Draw{}, ErrReasonRequired
+	}
+
+	if len(reason) > maxReasonLength {
+		return entity.Draw{}, ErrResourceInvalid
+	}
+
+	return uc.repo.Reassign(ctx, id, ticketID)
 }

@@ -1,16 +1,17 @@
 package repo_test
 
 import (
-	"application/internal/datasource"
-	"application/internal/draw/biz"
-	"application/internal/draw/entity"
-	"application/internal/draw/repo"
 	"context"
 	"database/sql"
 	"io"
 	"log/slog"
 	"testing"
 	"time"
+
+	"application/internal/datasource"
+	"application/internal/draw/biz"
+	"application/internal/draw/entity"
+	"application/internal/draw/repo"
 
 	"github.com/google/uuid"
 	_ "github.com/proullon/ramsql/driver"
@@ -36,7 +37,7 @@ func newRamsqlDB(t *testing.T) *datasource.PostgresDB {
 		`CREATE TABLE draws (
 			id TEXT PRIMARY KEY, competition_id TEXT,
 			winner_user_id TEXT, winner_ticket_id TEXT, prize TEXT, status TEXT,
-			drawn_at TIMESTAMP, created_at TIMESTAMP, updated_at TIMESTAMP)`,
+			void_reason TEXT, drawn_at TIMESTAMP, created_at TIMESTAMP, updated_at TIMESTAMP)`,
 		`CREATE TABLE tickets (id TEXT PRIMARY KEY, competition_id TEXT, user_id TEXT)`,
 	}
 	for _, s := range stmts {
@@ -54,11 +55,12 @@ func seedDraw(t *testing.T, db *datasource.PostgresDB, id, competitionID uuid.UU
 
 	// winner_* and drawn_at are passed as nil bound params (→ SQL NULL) rather
 	// than NULL literals, so scanDraw exercises the nullable columns via Get.
-	_, err := db.ExecContext(context.Background(),
+	_, err := db.ExecContext(
+		context.Background(),
 		`INSERT INTO draws
-			(id, competition_id, winner_user_id, winner_ticket_id, prize, status, drawn_at, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		id.String(), competitionID.String(), nil, nil, prize, status, nil, now, now,
+			(id, competition_id, winner_user_id, winner_ticket_id, prize, status, void_reason, drawn_at, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		id.String(), competitionID.String(), nil, nil, prize, status, "", nil, now, now,
 	)
 	require.NoError(t, err)
 }
@@ -128,4 +130,51 @@ func TestRepo_Run_NoTickets(t *testing.T) {
 
 	_, err := r.Run(ctx, id)
 	require.ErrorIs(t, err, biz.ErrNoTickets)
+}
+
+func TestRepo_VoidAndReassign(t *testing.T) {
+	ctx := context.Background()
+	db := newRamsqlDB(t)
+	r := newRepo(db)
+
+	compID := uuid.New()
+	drawID := uuid.New()
+	seedDraw(t, db, drawID, compID, "Audi RS3", "drawn")
+
+	// Reassign to a ticket of the same competition succeeds.
+	ticketID := uuid.New()
+	ownerID := uuid.New()
+	_, err := db.ExecContext(ctx,
+		`INSERT INTO tickets (id, competition_id, user_id) VALUES ($1, $2, $3)`,
+		ticketID.String(), compID.String(), ownerID.String())
+	require.NoError(t, err)
+
+	reassigned, err := r.Reassign(ctx, drawID, ticketID)
+	require.NoError(t, err)
+	require.NotNil(t, reassigned.WinnerTicketID)
+	require.Equal(t, ticketID, *reassigned.WinnerTicketID)
+	require.Equal(t, ownerID, *reassigned.WinnerUserID)
+
+	// A ticket from ANOTHER competition is rejected.
+	foreignTicket := uuid.New()
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO tickets (id, competition_id, user_id) VALUES ($1, $2, $3)`,
+		foreignTicket.String(), uuid.NewString(), ownerID.String())
+	require.NoError(t, err)
+
+	_, err = r.Reassign(ctx, drawID, foreignTicket)
+	require.ErrorIs(t, err, biz.ErrTicketMismatch)
+
+	// Void with reason; voiding again conflicts.
+	voided, err := r.Void(ctx, drawID, "compliance review")
+	require.NoError(t, err)
+	require.Equal(t, entity.StatusVoid, voided.Status)
+	require.Equal(t, "compliance review", voided.VoidReason)
+
+	_, err = r.Void(ctx, drawID, "again")
+	require.ErrorIs(t, err, biz.ErrInvalidState)
+
+	// Reassigning a void draw is blocked.
+	_, err = r.Reassign(ctx, drawID, ticketID)
+	require.ErrorIs(t, err, biz.ErrInvalidState)
 }

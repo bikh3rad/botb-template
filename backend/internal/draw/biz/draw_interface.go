@@ -1,8 +1,9 @@
 package biz
 
 import (
-	"application/internal/draw/entity"
 	"context"
+
+	"application/internal/draw/entity"
 
 	"github.com/google/uuid"
 )
@@ -30,11 +31,21 @@ type CreateInput struct {
 type UsecaseDraw interface {
 	List(ctx context.Context, filter ListFilter) (DrawPage, error)
 	Get(ctx context.Context, id uuid.UUID) (entity.Draw, error)
-	// GetPublic returns a draw only if it has been drawn/voided, hiding pending
-	// draws from the public homepage (returns ErrResourceNotFound otherwise).
+	// GetPublic returns a draw only if it has been drawn, hiding pending AND
+	// void draws from the public homepage (returns ErrResourceNotFound
+	// otherwise) — a voided result must not show a winner.
 	GetPublic(ctx context.Context, id uuid.UUID) (entity.Draw, error)
 	Create(ctx context.Context, in CreateInput) (entity.Draw, error)
 	Run(ctx context.Context, id uuid.UUID) (entity.Draw, error)
+	// UpdatePrize edits the prize text only (any status except void).
+	UpdatePrize(ctx context.Context, id uuid.UUID, prize string) (entity.Draw, error)
+	// Void marks a pending or drawn draw void with a REQUIRED reason. The safe
+	// path to change a winner is void + create a new draw + run it.
+	Void(ctx context.Context, id uuid.UUID, reason string) (entity.Draw, error)
+	// Reassign directly moves a DRAWN draw's winner to another ticket of the
+	// same competition. Requires a reason; exists so the mutation is explicit
+	// and audited rather than a hand-edited row.
+	Reassign(ctx context.Context, id uuid.UUID, ticketID uuid.UUID, reason string) (entity.Draw, error)
 }
 
 // Repository persists draws and runs the winner-selection transaction.
@@ -47,4 +58,10 @@ type Repository interface {
 	// the draw drawn. It must reject a non-pending draw (ErrAlreadyDrawn) and a
 	// competition with no tickets (ErrNoTickets).
 	Run(ctx context.Context, id uuid.UUID) (entity.Draw, error)
+	UpdatePrize(ctx context.Context, id uuid.UUID, prize string) (entity.Draw, error)
+	// Void sets status=void + void_reason atomically, only from pending/drawn.
+	Void(ctx context.Context, id uuid.UUID, reason string) (entity.Draw, error)
+	// Reassign validates (inside a transaction) that the ticket belongs to the
+	// draw's competition and swaps winner_ticket_id/winner_user_id.
+	Reassign(ctx context.Context, id uuid.UUID, ticketID uuid.UUID) (entity.Draw, error)
 }

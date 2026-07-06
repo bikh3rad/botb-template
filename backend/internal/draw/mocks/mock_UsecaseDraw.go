@@ -254,6 +254,65 @@ func (_c *MockUsecaseDraw_List_Call) RunAndReturn(run func(context.Context, biz.
 	return _c
 }
 
+// Reassign provides a mock function with given fields: ctx, id, ticketID, reason
+func (_m *MockUsecaseDraw) Reassign(ctx context.Context, id uuid.UUID, ticketID uuid.UUID, reason string) (entity.Draw, error) {
+	ret := _m.Called(ctx, id, ticketID, reason)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Reassign")
+	}
+
+	var r0 entity.Draw
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID, string) (entity.Draw, error)); ok {
+		return rf(ctx, id, ticketID, reason)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID, string) entity.Draw); ok {
+		r0 = rf(ctx, id, ticketID, reason)
+	} else {
+		r0 = ret.Get(0).(entity.Draw)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, uuid.UUID, string) error); ok {
+		r1 = rf(ctx, id, ticketID, reason)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockUsecaseDraw_Reassign_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Reassign'
+type MockUsecaseDraw_Reassign_Call struct {
+	*mock.Call
+}
+
+// Reassign is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+//   - ticketID uuid.UUID
+//   - reason string
+func (_e *MockUsecaseDraw_Expecter) Reassign(ctx interface{}, id interface{}, ticketID interface{}, reason interface{}) *MockUsecaseDraw_Reassign_Call {
+	return &MockUsecaseDraw_Reassign_Call{Call: _e.mock.On("Reassign", ctx, id, ticketID, reason)}
+}
+
+func (_c *MockUsecaseDraw_Reassign_Call) Run(run func(ctx context.Context, id uuid.UUID, ticketID uuid.UUID, reason string)) *MockUsecaseDraw_Reassign_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(uuid.UUID), args[3].(string))
+	})
+	return _c
+}
+
+func (_c *MockUsecaseDraw_Reassign_Call) Return(_a0 entity.Draw, _a1 error) *MockUsecaseDraw_Reassign_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockUsecaseDraw_Reassign_Call) RunAndReturn(run func(context.Context, uuid.UUID, uuid.UUID, string) (entity.Draw, error)) *MockUsecaseDraw_Reassign_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Run provides a mock function with given fields: ctx, id
 func (_m *MockUsecaseDraw) Run(ctx context.Context, id uuid.UUID) (entity.Draw, error) {
 	ret := _m.Called(ctx, id)
@@ -307,6 +366,122 @@ func (_c *MockUsecaseDraw_Run_Call) Return(_a0 entity.Draw, _a1 error) *MockUsec
 }
 
 func (_c *MockUsecaseDraw_Run_Call) RunAndReturn(run func(context.Context, uuid.UUID) (entity.Draw, error)) *MockUsecaseDraw_Run_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdatePrize provides a mock function with given fields: ctx, id, prize
+func (_m *MockUsecaseDraw) UpdatePrize(ctx context.Context, id uuid.UUID, prize string) (entity.Draw, error) {
+	ret := _m.Called(ctx, id, prize)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdatePrize")
+	}
+
+	var r0 entity.Draw
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) (entity.Draw, error)); ok {
+		return rf(ctx, id, prize)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) entity.Draw); ok {
+		r0 = rf(ctx, id, prize)
+	} else {
+		r0 = ret.Get(0).(entity.Draw)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, string) error); ok {
+		r1 = rf(ctx, id, prize)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockUsecaseDraw_UpdatePrize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdatePrize'
+type MockUsecaseDraw_UpdatePrize_Call struct {
+	*mock.Call
+}
+
+// UpdatePrize is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+//   - prize string
+func (_e *MockUsecaseDraw_Expecter) UpdatePrize(ctx interface{}, id interface{}, prize interface{}) *MockUsecaseDraw_UpdatePrize_Call {
+	return &MockUsecaseDraw_UpdatePrize_Call{Call: _e.mock.On("UpdatePrize", ctx, id, prize)}
+}
+
+func (_c *MockUsecaseDraw_UpdatePrize_Call) Run(run func(ctx context.Context, id uuid.UUID, prize string)) *MockUsecaseDraw_UpdatePrize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockUsecaseDraw_UpdatePrize_Call) Return(_a0 entity.Draw, _a1 error) *MockUsecaseDraw_UpdatePrize_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockUsecaseDraw_UpdatePrize_Call) RunAndReturn(run func(context.Context, uuid.UUID, string) (entity.Draw, error)) *MockUsecaseDraw_UpdatePrize_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Void provides a mock function with given fields: ctx, id, reason
+func (_m *MockUsecaseDraw) Void(ctx context.Context, id uuid.UUID, reason string) (entity.Draw, error) {
+	ret := _m.Called(ctx, id, reason)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Void")
+	}
+
+	var r0 entity.Draw
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) (entity.Draw, error)); ok {
+		return rf(ctx, id, reason)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) entity.Draw); ok {
+		r0 = rf(ctx, id, reason)
+	} else {
+		r0 = ret.Get(0).(entity.Draw)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, string) error); ok {
+		r1 = rf(ctx, id, reason)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockUsecaseDraw_Void_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Void'
+type MockUsecaseDraw_Void_Call struct {
+	*mock.Call
+}
+
+// Void is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+//   - reason string
+func (_e *MockUsecaseDraw_Expecter) Void(ctx interface{}, id interface{}, reason interface{}) *MockUsecaseDraw_Void_Call {
+	return &MockUsecaseDraw_Void_Call{Call: _e.mock.On("Void", ctx, id, reason)}
+}
+
+func (_c *MockUsecaseDraw_Void_Call) Run(run func(ctx context.Context, id uuid.UUID, reason string)) *MockUsecaseDraw_Void_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockUsecaseDraw_Void_Call) Return(_a0 entity.Draw, _a1 error) *MockUsecaseDraw_Void_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockUsecaseDraw_Void_Call) RunAndReturn(run func(context.Context, uuid.UUID, string) (entity.Draw, error)) *MockUsecaseDraw_Void_Call {
 	_c.Call.Return(run)
 	return _c
 }

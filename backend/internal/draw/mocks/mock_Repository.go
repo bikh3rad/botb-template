@@ -197,6 +197,64 @@ func (_c *MockRepository_List_Call) RunAndReturn(run func(context.Context, biz.L
 	return _c
 }
 
+// Reassign provides a mock function with given fields: ctx, id, ticketID
+func (_m *MockRepository) Reassign(ctx context.Context, id uuid.UUID, ticketID uuid.UUID) (entity.Draw, error) {
+	ret := _m.Called(ctx, id, ticketID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Reassign")
+	}
+
+	var r0 entity.Draw
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID) (entity.Draw, error)); ok {
+		return rf(ctx, id, ticketID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID) entity.Draw); ok {
+		r0 = rf(ctx, id, ticketID)
+	} else {
+		r0 = ret.Get(0).(entity.Draw)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, uuid.UUID) error); ok {
+		r1 = rf(ctx, id, ticketID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_Reassign_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Reassign'
+type MockRepository_Reassign_Call struct {
+	*mock.Call
+}
+
+// Reassign is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+//   - ticketID uuid.UUID
+func (_e *MockRepository_Expecter) Reassign(ctx interface{}, id interface{}, ticketID interface{}) *MockRepository_Reassign_Call {
+	return &MockRepository_Reassign_Call{Call: _e.mock.On("Reassign", ctx, id, ticketID)}
+}
+
+func (_c *MockRepository_Reassign_Call) Run(run func(ctx context.Context, id uuid.UUID, ticketID uuid.UUID)) *MockRepository_Reassign_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(uuid.UUID))
+	})
+	return _c
+}
+
+func (_c *MockRepository_Reassign_Call) Return(_a0 entity.Draw, _a1 error) *MockRepository_Reassign_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_Reassign_Call) RunAndReturn(run func(context.Context, uuid.UUID, uuid.UUID) (entity.Draw, error)) *MockRepository_Reassign_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Run provides a mock function with given fields: ctx, id
 func (_m *MockRepository) Run(ctx context.Context, id uuid.UUID) (entity.Draw, error) {
 	ret := _m.Called(ctx, id)
@@ -250,6 +308,122 @@ func (_c *MockRepository_Run_Call) Return(_a0 entity.Draw, _a1 error) *MockRepos
 }
 
 func (_c *MockRepository_Run_Call) RunAndReturn(run func(context.Context, uuid.UUID) (entity.Draw, error)) *MockRepository_Run_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdatePrize provides a mock function with given fields: ctx, id, prize
+func (_m *MockRepository) UpdatePrize(ctx context.Context, id uuid.UUID, prize string) (entity.Draw, error) {
+	ret := _m.Called(ctx, id, prize)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdatePrize")
+	}
+
+	var r0 entity.Draw
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) (entity.Draw, error)); ok {
+		return rf(ctx, id, prize)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) entity.Draw); ok {
+		r0 = rf(ctx, id, prize)
+	} else {
+		r0 = ret.Get(0).(entity.Draw)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, string) error); ok {
+		r1 = rf(ctx, id, prize)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_UpdatePrize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdatePrize'
+type MockRepository_UpdatePrize_Call struct {
+	*mock.Call
+}
+
+// UpdatePrize is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+//   - prize string
+func (_e *MockRepository_Expecter) UpdatePrize(ctx interface{}, id interface{}, prize interface{}) *MockRepository_UpdatePrize_Call {
+	return &MockRepository_UpdatePrize_Call{Call: _e.mock.On("UpdatePrize", ctx, id, prize)}
+}
+
+func (_c *MockRepository_UpdatePrize_Call) Run(run func(ctx context.Context, id uuid.UUID, prize string)) *MockRepository_UpdatePrize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockRepository_UpdatePrize_Call) Return(_a0 entity.Draw, _a1 error) *MockRepository_UpdatePrize_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_UpdatePrize_Call) RunAndReturn(run func(context.Context, uuid.UUID, string) (entity.Draw, error)) *MockRepository_UpdatePrize_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Void provides a mock function with given fields: ctx, id, reason
+func (_m *MockRepository) Void(ctx context.Context, id uuid.UUID, reason string) (entity.Draw, error) {
+	ret := _m.Called(ctx, id, reason)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Void")
+	}
+
+	var r0 entity.Draw
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) (entity.Draw, error)); ok {
+		return rf(ctx, id, reason)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) entity.Draw); ok {
+		r0 = rf(ctx, id, reason)
+	} else {
+		r0 = ret.Get(0).(entity.Draw)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, string) error); ok {
+		r1 = rf(ctx, id, reason)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepository_Void_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Void'
+type MockRepository_Void_Call struct {
+	*mock.Call
+}
+
+// Void is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+//   - reason string
+func (_e *MockRepository_Expecter) Void(ctx interface{}, id interface{}, reason interface{}) *MockRepository_Void_Call {
+	return &MockRepository_Void_Call{Call: _e.mock.On("Void", ctx, id, reason)}
+}
+
+func (_c *MockRepository_Void_Call) Run(run func(ctx context.Context, id uuid.UUID, reason string)) *MockRepository_Void_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockRepository_Void_Call) Return(_a0 entity.Draw, _a1 error) *MockRepository_Void_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepository_Void_Call) RunAndReturn(run func(context.Context, uuid.UUID, string) (entity.Draw, error)) *MockRepository_Void_Call {
 	_c.Call.Return(run)
 	return _c
 }

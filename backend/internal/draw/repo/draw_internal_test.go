@@ -1,9 +1,10 @@
 package repo
 
 import (
-	"application/internal/draw/biz"
 	"errors"
 	"testing"
+
+	"application/internal/draw/biz"
 )
 
 // randomIndex uses crypto/rand; verify it stays in bounds, covers the range,

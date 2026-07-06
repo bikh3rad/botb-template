@@ -1,12 +1,6 @@
 package handler_test
 
 import (
-	"application/internal/draw/biz"
-	"application/internal/draw/dto"
-	"application/internal/draw/entity"
-	drawhandler "application/internal/draw/handler"
-	"application/internal/draw/mocks"
-	"application/pkg/middlewares"
 	"context"
 	"encoding/json"
 	"io"
@@ -16,6 +10,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"application/internal/draw/biz"
+	"application/internal/draw/dto"
+	"application/internal/draw/entity"
+	drawhandler "application/internal/draw/handler"
+	"application/internal/draw/mocks"
+	"application/pkg/audit"
+	"application/pkg/middlewares"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -44,7 +46,7 @@ func newTestHandler(t *testing.T) (*http.ServeMux, *mocks.MockUsecaseDraw) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	auth := middlewares.NewJWTAuth(middlewares.JWTSecret(testSecret))
-	h := drawhandler.NewDraw(logger, mux, uc, auth)
+	h := drawhandler.NewDraw(logger, mux, uc, auth, audit.NewRecorder(logger, nil))
 	require.NoError(t, h.RegisterHandler(context.Background()))
 
 	return mux, uc

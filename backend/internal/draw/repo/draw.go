@@ -1,9 +1,6 @@
 package repo
 
 import (
-	"application/internal/datasource"
-	"application/internal/draw/biz"
-	"application/internal/draw/entity"
 	"context"
 	"crypto/rand"
 	"database/sql"
@@ -12,6 +9,10 @@ import (
 	"math/big"
 	"strconv"
 	"time"
+
+	"application/internal/datasource"
+	"application/internal/draw/biz"
+	"application/internal/draw/entity"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
@@ -36,7 +37,7 @@ func NewDraw(logger *slog.Logger, db *datasource.PostgresDB) *draw {
 }
 
 const drawColumns = `id, competition_id, winner_user_id, winner_ticket_id, prize,
-	status, drawn_at, created_at, updated_at`
+	status, void_reason, drawn_at, created_at, updated_at`
 
 // Create inserts a pending draw (id pre-generated) and returns the stored row.
 func (r *draw) Create(ctx context.Context, d entity.Draw) (entity.Draw, error) {
@@ -165,7 +166,8 @@ func (r *draw) Run(ctx context.Context, id uuid.UUID) (entity.Draw, error) {
 
 	drawnAt := time.Now().UTC()
 
-	res, err := tx.ExecContext(ctx,
+	res, err := tx.ExecContext(
+		ctx,
 		`UPDATE draws
 			SET winner_user_id = $1, winner_ticket_id = $2, status = 'drawn',
 			    drawn_at = $3, updated_at = $4
@@ -208,7 +210,8 @@ func loadPendingCompetition(ctx context.Context, tx *sql.Tx, id uuid.UUID) (uuid
 		status        string
 	)
 
-	err := tx.QueryRowContext(ctx,
+	err := tx.QueryRowContext(
+		ctx,
 		`SELECT competition_id, status FROM draws WHERE id = $1`, id,
 	).Scan(&competitionID, &status)
 
@@ -280,6 +283,146 @@ func randomIndex(n int) (int, error) {
 	return int(idx.Int64()), nil
 }
 
+// UpdatePrize edits the prize text (UPDATE-then-SELECT, no RETURNING, for
+// ramsql compatibility).
+func (r *draw) UpdatePrize(ctx context.Context, id uuid.UUID, prize string) (entity.Draw, error) {
+	logger := r.logger.With("method", "UpdatePrize")
+
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE draws SET prize = $1, updated_at = $2 WHERE id = $3`,
+		prize, time.Now().UTC(), id)
+	if err != nil {
+		logger.WarnContext(ctx, "failed to update draw prize", "error", err)
+
+		return entity.Draw{}, err
+	}
+
+	if affected, err := res.RowsAffected(); err != nil {
+		return entity.Draw{}, err
+	} else if affected == 0 {
+		return entity.Draw{}, biz.ErrResourceNotFound
+	}
+
+	return r.Get(ctx, id)
+}
+
+// Void marks a pending or drawn draw void with the reason. Optimistic CAS:
+// the UPDATE is conditional on the status we just read, so a concurrent
+// void/run makes it a no-op and we report the conflict instead of clobbering.
+func (r *draw) Void(ctx context.Context, id uuid.UUID, reason string) (entity.Draw, error) {
+	logger := r.logger.With("method", "Void")
+
+	current, err := r.Get(ctx, id)
+	if err != nil {
+		return entity.Draw{}, err
+	}
+
+	if current.Status == entity.StatusVoid {
+		return entity.Draw{}, biz.ErrInvalidState
+	}
+
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE draws SET status = $1, void_reason = $2, updated_at = $3
+		 WHERE id = $4 AND status = $5`,
+		string(entity.StatusVoid), reason, time.Now().UTC(), id, string(current.Status))
+	if err != nil {
+		logger.WarnContext(ctx, "failed to void draw", "error", err)
+
+		return entity.Draw{}, err
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return entity.Draw{}, err
+	}
+
+	if affected == 0 {
+		// Lost a race to a concurrent void/run.
+		return entity.Draw{}, biz.ErrInvalidState
+	}
+
+	return r.Get(ctx, id)
+}
+
+// Reassign swaps a DRAWN draw's winner to another ticket of the same
+// competition, validating everything inside one transaction.
+func (r *draw) Reassign(ctx context.Context, id uuid.UUID, ticketID uuid.UUID) (entity.Draw, error) {
+	logger := r.logger.With("method", "Reassign")
+
+	ctx, span := r.tracer.Start(ctx, "Reassign")
+	defer span.End()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return entity.Draw{}, err
+	}
+
+	defer func() { _ = tx.Rollback() }()
+
+	var (
+		competitionID uuid.UUID
+		status        string
+	)
+
+	err = tx.QueryRowContext(
+		ctx,
+		`SELECT competition_id, status FROM draws WHERE id = $1`, id,
+	).Scan(&competitionID, &status)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return entity.Draw{}, biz.ErrResourceNotFound
+	}
+
+	if err != nil {
+		return entity.Draw{}, err
+	}
+
+	if entity.Status(status) != entity.StatusDrawn {
+		return entity.Draw{}, biz.ErrInvalidState
+	}
+
+	var (
+		ticketCompetition uuid.UUID
+		ticketOwner       uuid.UUID
+	)
+
+	err = tx.QueryRowContext(
+		ctx,
+		`SELECT competition_id, user_id FROM tickets WHERE id = $1`, ticketID,
+	).Scan(&ticketCompetition, &ticketOwner)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return entity.Draw{}, biz.ErrTicketMismatch
+	}
+
+	if err != nil {
+		return entity.Draw{}, err
+	}
+
+	if ticketCompetition != competitionID {
+		return entity.Draw{}, biz.ErrTicketMismatch
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE draws SET winner_ticket_id = $1, winner_user_id = $2, updated_at = $3 WHERE id = $4`,
+		ticketID, ticketOwner, time.Now().UTC(), id); err != nil {
+		logger.WarnContext(ctx, "failed to reassign winner", "error", err)
+
+		return entity.Draw{}, err
+	}
+
+	updated, err := scanDraw(tx.QueryRowContext(ctx, `SELECT `+drawColumns+` FROM draws WHERE id = $1`, id))
+	if err != nil {
+		return entity.Draw{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return entity.Draw{}, err
+	}
+
+	return updated, nil
+}
+
 type scanner interface {
 	Scan(dest ...any) error
 }
@@ -295,7 +438,7 @@ func scanDraw(s scanner) (entity.Draw, error) {
 
 	if err := s.Scan(
 		&d.ID, &d.CompetitionID, &winnerUser, &winnerTicket, &d.Prize,
-		&status, &drawnAt, &d.CreatedAt, &d.UpdatedAt,
+		&status, &d.VoidReason, &drawnAt, &d.CreatedAt, &d.UpdatedAt,
 	); err != nil {
 		return entity.Draw{}, err
 	}

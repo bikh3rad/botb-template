@@ -1,8 +1,9 @@
 package dto
 
 import (
-	"application/internal/draw/entity"
 	"time"
+
+	"application/internal/draw/entity"
 )
 
 const rfc3339 = "2006-01-02T15:04:05Z07:00"
@@ -13,6 +14,24 @@ type CreateDrawReq struct {
 	Prize         string `json:"prize"`
 }
 
+// UpdateDrawReq edits the prize text only — winner fields are never directly
+// PATCHable; use void+re-run or the audited reassign endpoint.
+type UpdateDrawReq struct {
+	Prize string `json:"prize"`
+}
+
+// VoidDrawReq voids a draw; Reason is REQUIRED.
+type VoidDrawReq struct {
+	Reason string `json:"reason"`
+}
+
+// ReassignDrawReq moves a drawn draw's winner to another ticket of the same
+// competition; Reason is REQUIRED and lands in the audit trail.
+type ReassignDrawReq struct {
+	WinnerTicketID string `json:"winner_ticket_id"`
+	Reason         string `json:"reason"`
+}
+
 // DrawResp is the API representation of a draw.
 type DrawResp struct {
 	ID             string `json:"id"`
@@ -21,6 +40,7 @@ type DrawResp struct {
 	WinnerTicketID string `json:"winner_ticket_id,omitempty"`
 	Prize          string `json:"prize"`
 	Status         string `json:"status"`
+	VoidReason     string `json:"void_reason,omitempty"`
 	DrawnAt        string `json:"drawn_at,omitempty"`
 	CreatedAt      string `json:"created_at"`
 	UpdatedAt      string `json:"updated_at"`
@@ -33,6 +53,7 @@ func ToDrawResp(d entity.Draw) DrawResp {
 		CompetitionID: d.CompetitionID.String(),
 		Prize:         d.Prize,
 		Status:        string(d.Status),
+		VoidReason:    d.VoidReason,
 		CreatedAt:     formatTime(d.CreatedAt),
 		UpdatedAt:     formatTime(d.UpdatedAt),
 	}
