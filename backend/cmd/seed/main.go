@@ -15,7 +15,6 @@
 package main
 
 import (
-	"application/internal/seeddata"
 	"bytes"
 	"context"
 	"database/sql"
@@ -26,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"application/internal/seeddata"
 
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib" // register the "pgx" database/sql driver
@@ -173,6 +174,7 @@ func (s *seeder) seedCompetitions(ctx context.Context) error {
 			ticketsTotal:     comp.TicketsTotal,
 			ticketsSold:      comp.TicketsSold,
 			status:           comp.Status,
+			categoryID:       categoryIDFor(comp.Title),
 			startsAt:         &startsAt,
 			endsAt:           &endsAt,
 		}); err != nil {
@@ -358,15 +360,60 @@ type competitionRow struct {
 	ticketsTotal     int64
 	ticketsSold      int64
 	status           string
+	categoryID       *uuid.UUID
 	startsAt         *time.Time
 	endsAt           *time.Time
+}
+
+// Category ids fixed by migration 000008 — the seeder maps each sample
+// competition onto one by keyword so the admin category filter has real data.
+var seedCategoryIDs = map[string]uuid.UUID{
+	"cars":         uuid.MustParse("c0000000-0000-4000-8000-000000000001"),
+	"property":     uuid.MustParse("c0000000-0000-4000-8000-000000000002"),
+	"instant-wins": uuid.MustParse("c0000000-0000-4000-8000-000000000003"),
+	"lifestyle":    uuid.MustParse("c0000000-0000-4000-8000-000000000004"),
+	"tech":         uuid.MustParse("c0000000-0000-4000-8000-000000000005"),
+	"cash":         uuid.MustParse("c0000000-0000-4000-8000-000000000006"),
+}
+
+// categoryIDFor picks a category from obvious title keywords, defaulting to
+// Lifestyle. Pure presentation-level bucketing of SAMPLE data.
+func categoryIDFor(title string) *uuid.UUID {
+	t := strings.ToLower(title)
+
+	slug := "lifestyle"
+
+	switch {
+	case strings.Contains(t, "instant win"):
+		slug = "instant-wins"
+	case strings.Contains(t, "car") || strings.Contains(t, "audi") ||
+		strings.Contains(t, "defender") || strings.Contains(t, "bmw") ||
+		strings.Contains(t, "golf") || strings.Contains(t, "porsche") ||
+		strings.Contains(t, "mercedes") || strings.Contains(t, "range rover") ||
+		strings.Contains(t, "golden boot"):
+		slug = "cars"
+	case strings.Contains(t, "home") || strings.Contains(t, "house") ||
+		strings.Contains(t, "property") || strings.Contains(t, "apartment"):
+		slug = "property"
+	case strings.Contains(t, "cash") || strings.Contains(t, "tax free") ||
+		strings.Contains(t, "£") && strings.Contains(t, "000"):
+		slug = "cash"
+	case strings.Contains(t, "tech") || strings.Contains(t, "iphone") ||
+		strings.Contains(t, "playstation") || strings.Contains(t, "macbook") ||
+		strings.Contains(t, "airpods") || strings.Contains(t, "switch"):
+		slug = "tech"
+	}
+
+	id := seedCategoryIDs[slug]
+
+	return &id
 }
 
 func (s *seeder) upsertCompetition(ctx context.Context, c competitionRow) error {
 	const q = `INSERT INTO competitions
 		(id, title, slug, description, prize, ticket_price_pence, tickets_total,
-		 tickets_sold, status, starts_at, ends_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		 tickets_sold, category_id, status, starts_at, ends_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 		ON CONFLICT (id) DO UPDATE SET
 			title              = EXCLUDED.title,
 			slug               = EXCLUDED.slug,
@@ -375,14 +422,21 @@ func (s *seeder) upsertCompetition(ctx context.Context, c competitionRow) error 
 			ticket_price_pence = EXCLUDED.ticket_price_pence,
 			tickets_total      = EXCLUDED.tickets_total,
 			tickets_sold       = EXCLUDED.tickets_sold,
+			category_id        = EXCLUDED.category_id,
 			status             = EXCLUDED.status,
 			starts_at          = EXCLUDED.starts_at,
 			ends_at            = EXCLUDED.ends_at,
 			updated_at         = NOW()`
 
-	_, err := s.db.ExecContext(ctx, q,
+	var categoryID any
+	if c.categoryID != nil {
+		categoryID = *c.categoryID
+	}
+
+	_, err := s.db.ExecContext(
+		ctx, q,
 		c.id, c.title, c.slug, c.description, c.prize, c.ticketPricePence,
-		c.ticketsTotal, c.ticketsSold, c.status, c.startsAt, c.endsAt,
+		c.ticketsTotal, c.ticketsSold, categoryID, c.status, c.startsAt, c.endsAt,
 	)
 
 	return err
@@ -415,7 +469,8 @@ func (s *seeder) upsertMedia(ctx context.Context, m mediaRow) error {
 			size_bytes   = EXCLUDED.size_bytes,
 			position     = EXCLUDED.position`
 
-	_, err := s.db.ExecContext(ctx, q,
+	_, err := s.db.ExecContext(
+		ctx, q,
 		m.id, m.ownerType, m.ownerID, m.kind, m.bucket, m.objectKey,
 		m.contentType, m.sizeBytes, m.position,
 	)
@@ -478,7 +533,8 @@ func (s *seeder) upsertDraw(ctx context.Context, d drawRow) error {
 			drawn_at         = EXCLUDED.drawn_at,
 			updated_at       = NOW()`
 
-	_, err := s.db.ExecContext(ctx, q,
+	_, err := s.db.ExecContext(
+		ctx, q,
 		d.id, d.competitionID, uuidPtr(d.winnerUserID), uuidPtr(d.winnerTicketID),
 		d.prize, d.status, d.drawnAt,
 	)

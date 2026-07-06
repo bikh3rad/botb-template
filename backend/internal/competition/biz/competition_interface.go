@@ -1,9 +1,10 @@
 package biz
 
 import (
-	"application/internal/competition/entity"
 	"context"
 	"time"
+
+	"application/internal/competition/entity"
 
 	"github.com/google/uuid"
 )
@@ -22,18 +23,24 @@ type CreateInput struct {
 	Prize            string
 	TicketPricePence int64
 	TicketsTotal     int64
+	CategoryID       *uuid.UUID
 	Status           entity.Status
 	StartsAt         time.Time
 	EndsAt           time.Time
 }
 
-// UpdateInput is the biz-level payload for a full competition update.
+// UpdateInput is the biz-level payload for a full competition update. It covers
+// EVERY editable field (title, slug, description, prize, price, total,
+// category, status, window). tickets_sold is deliberately absent — it is a
+// derived value no endpoint may write.
 type UpdateInput struct {
 	Title            string
+	Slug             string
 	Description      string
 	Prize            string
 	TicketPricePence int64
 	TicketsTotal     int64
+	CategoryID       *uuid.UUID
 	Status           entity.Status
 	StartsAt         time.Time
 	EndsAt           time.Time
