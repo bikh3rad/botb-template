@@ -1,12 +1,6 @@
 package handler_test
 
 import (
-	"application/internal/user/biz"
-	"application/internal/user/dto"
-	"application/internal/user/entity"
-	userhandler "application/internal/user/handler"
-	"application/internal/user/mocks"
-	"application/pkg/middlewares"
 	"context"
 	"encoding/json"
 	"io"
@@ -16,6 +10,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"application/internal/user/biz"
+	"application/internal/user/dto"
+	"application/internal/user/entity"
+	userhandler "application/internal/user/handler"
+	"application/internal/user/mocks"
+	"application/pkg/audit"
+	"application/pkg/middlewares"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -51,7 +53,7 @@ func newHarness(t *testing.T) harness {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	auth := middlewares.NewJWTAuth(middlewares.JWTSecret(testSecret))
 
-	uh := userhandler.NewUser(logger, mux, userUC, auth)
+	uh := userhandler.NewUser(logger, mux, userUC, auth, audit.NewRecorder(logger, nil))
 	require.NoError(t, uh.RegisterHandler(context.Background()))
 
 	th := userhandler.NewTicket(logger, mux, tktUC, auth)

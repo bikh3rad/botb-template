@@ -11,4 +11,7 @@ var (
 	ErrResourceExists = errors.New("user already exists")
 	// ErrCompetitionNotFound is returned when purchasing against an unknown competition.
 	ErrCompetitionNotFound = errors.New("competition not found")
+	// ErrUserSuspended is returned when a suspended (is_active=false) user
+	// attempts a purchase.
+	ErrUserSuspended = errors.New("user is suspended")
 )

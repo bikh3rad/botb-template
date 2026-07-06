@@ -1,8 +1,9 @@
 package biz
 
 import (
-	"application/internal/user/entity"
 	"context"
+
+	"application/internal/user/entity"
 
 	"github.com/google/uuid"
 )
@@ -20,11 +21,15 @@ type UserPage struct {
 	Total int
 }
 
-// UsecaseUser is consumed by the HTTP handler.
+// UsecaseUser is consumed by the HTTP handler. Update and SetActive are the
+// ONLY admin write paths: the derived counters (tickets_owned,
+// total_spent_pence) have no setter anywhere by design.
 type UsecaseUser interface {
 	Register(ctx context.Context, name, email string) (entity.User, error)
 	List(ctx context.Context, filter UserListFilter) (UserPage, error)
 	Get(ctx context.Context, id uuid.UUID) (entity.User, error)
+	Update(ctx context.Context, id uuid.UUID, name, email string) (entity.User, error)
+	SetActive(ctx context.Context, id uuid.UUID, active bool) (entity.User, error)
 }
 
 // RepositoryUser persists users. Implemented by internal/user/repo (pgx).
@@ -32,4 +37,6 @@ type RepositoryUser interface {
 	Create(ctx context.Context, u entity.User) (entity.User, error)
 	List(ctx context.Context, filter UserListFilter) (UserPage, error)
 	Get(ctx context.Context, id uuid.UUID) (entity.User, error)
+	Update(ctx context.Context, id uuid.UUID, name, email string) (entity.User, error)
+	SetActive(ctx context.Context, id uuid.UUID, active bool) (entity.User, error)
 }

@@ -1,14 +1,15 @@
 package repo
 
 import (
-	"application/internal/datasource"
-	"application/internal/user/biz"
-	"application/internal/user/entity"
 	"context"
 	"database/sql"
 	"errors"
 	"log/slog"
 	"strconv"
+
+	"application/internal/datasource"
+	"application/internal/user/biz"
+	"application/internal/user/entity"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -35,17 +36,17 @@ func NewUser(logger *slog.Logger, db *datasource.PostgresDB) *user {
 	}
 }
 
-const userColumns = `id, name, email, tickets_owned, total_spent_pence, created_at`
+const userColumns = `id, name, email, tickets_owned, total_spent_pence, is_active, created_at`
 
 // Create inserts a user (id pre-generated) and returns the stored row.
 func (r *user) Create(ctx context.Context, u entity.User) (entity.User, error) {
 	logger := r.logger.With("method", "Create")
 
 	query := `INSERT INTO users (id, name, email) VALUES ($1, $2, $3)
-		RETURNING tickets_owned, total_spent_pence, created_at`
+		RETURNING tickets_owned, total_spent_pence, is_active, created_at`
 
 	row := r.db.QueryRowContext(ctx, query, u.ID, u.Name, u.Email)
-	if err := row.Scan(&u.TicketsOwned, &u.TotalSpentPence, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.TicketsOwned, &u.TotalSpentPence, &u.IsActive, &u.CreatedAt); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
 			return entity.User{}, biz.ErrResourceExists
@@ -140,9 +141,59 @@ type scanner interface {
 
 func scanUser(s scanner) (entity.User, error) {
 	var u entity.User
-	if err := s.Scan(&u.ID, &u.Name, &u.Email, &u.TicketsOwned, &u.TotalSpentPence, &u.CreatedAt); err != nil {
+	if err := s.Scan(&u.ID, &u.Name, &u.Email, &u.TicketsOwned, &u.TotalSpentPence, &u.IsActive, &u.CreatedAt); err != nil {
 		return entity.User{}, err
 	}
 
 	return u, nil
+}
+
+// Update writes the admin-editable profile fields (name, email). The derived
+// counters (tickets_owned, total_spent_pence) are intentionally NOT part of
+// this statement — they are owned by the purchase transaction. UPDATE-then-
+// SELECT (no RETURNING) keeps the statement ramsql-testable.
+func (r *user) Update(ctx context.Context, id uuid.UUID, name, email string) (entity.User, error) {
+	logger := r.logger.With("method", "Update")
+
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE users SET name = $1, email = $2 WHERE id = $3`, name, email, id)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
+			return entity.User{}, biz.ErrResourceExists
+		}
+
+		logger.WarnContext(ctx, "failed to update user", "error", err)
+
+		return entity.User{}, err
+	}
+
+	if affected, err := res.RowsAffected(); err != nil {
+		return entity.User{}, err
+	} else if affected == 0 {
+		return entity.User{}, biz.ErrResourceNotFound
+	}
+
+	return r.Get(ctx, id)
+}
+
+// SetActive flips the suspend flag.
+func (r *user) SetActive(ctx context.Context, id uuid.UUID, active bool) (entity.User, error) {
+	logger := r.logger.With("method", "SetActive")
+
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE users SET is_active = $1 WHERE id = $2`, active, id)
+	if err != nil {
+		logger.WarnContext(ctx, "failed to set user active flag", "error", err)
+
+		return entity.User{}, err
+	}
+
+	if affected, err := res.RowsAffected(); err != nil {
+		return entity.User{}, err
+	} else if affected == 0 {
+		return entity.User{}, biz.ErrResourceNotFound
+	}
+
+	return r.Get(ctx, id)
 }

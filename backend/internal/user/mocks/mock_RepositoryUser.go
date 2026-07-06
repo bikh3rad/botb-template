@@ -197,6 +197,123 @@ func (_c *MockRepositoryUser_List_Call) RunAndReturn(run func(context.Context, b
 	return _c
 }
 
+// SetActive provides a mock function with given fields: ctx, id, active
+func (_m *MockRepositoryUser) SetActive(ctx context.Context, id uuid.UUID, active bool) (entity.User, error) {
+	ret := _m.Called(ctx, id, active)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetActive")
+	}
+
+	var r0 entity.User
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, bool) (entity.User, error)); ok {
+		return rf(ctx, id, active)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, bool) entity.User); ok {
+		r0 = rf(ctx, id, active)
+	} else {
+		r0 = ret.Get(0).(entity.User)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, bool) error); ok {
+		r1 = rf(ctx, id, active)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepositoryUser_SetActive_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetActive'
+type MockRepositoryUser_SetActive_Call struct {
+	*mock.Call
+}
+
+// SetActive is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+//   - active bool
+func (_e *MockRepositoryUser_Expecter) SetActive(ctx interface{}, id interface{}, active interface{}) *MockRepositoryUser_SetActive_Call {
+	return &MockRepositoryUser_SetActive_Call{Call: _e.mock.On("SetActive", ctx, id, active)}
+}
+
+func (_c *MockRepositoryUser_SetActive_Call) Run(run func(ctx context.Context, id uuid.UUID, active bool)) *MockRepositoryUser_SetActive_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(bool))
+	})
+	return _c
+}
+
+func (_c *MockRepositoryUser_SetActive_Call) Return(_a0 entity.User, _a1 error) *MockRepositoryUser_SetActive_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepositoryUser_SetActive_Call) RunAndReturn(run func(context.Context, uuid.UUID, bool) (entity.User, error)) *MockRepositoryUser_SetActive_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Update provides a mock function with given fields: ctx, id, name, email
+func (_m *MockRepositoryUser) Update(ctx context.Context, id uuid.UUID, name string, email string) (entity.User, error) {
+	ret := _m.Called(ctx, id, name, email)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Update")
+	}
+
+	var r0 entity.User
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string, string) (entity.User, error)); ok {
+		return rf(ctx, id, name, email)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string, string) entity.User); ok {
+		r0 = rf(ctx, id, name, email)
+	} else {
+		r0 = ret.Get(0).(entity.User)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, string, string) error); ok {
+		r1 = rf(ctx, id, name, email)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockRepositoryUser_Update_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Update'
+type MockRepositoryUser_Update_Call struct {
+	*mock.Call
+}
+
+// Update is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+//   - name string
+//   - email string
+func (_e *MockRepositoryUser_Expecter) Update(ctx interface{}, id interface{}, name interface{}, email interface{}) *MockRepositoryUser_Update_Call {
+	return &MockRepositoryUser_Update_Call{Call: _e.mock.On("Update", ctx, id, name, email)}
+}
+
+func (_c *MockRepositoryUser_Update_Call) Run(run func(ctx context.Context, id uuid.UUID, name string, email string)) *MockRepositoryUser_Update_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(string), args[3].(string))
+	})
+	return _c
+}
+
+func (_c *MockRepositoryUser_Update_Call) Return(_a0 entity.User, _a1 error) *MockRepositoryUser_Update_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockRepositoryUser_Update_Call) RunAndReturn(run func(context.Context, uuid.UUID, string, string) (entity.User, error)) *MockRepositoryUser_Update_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockRepositoryUser creates a new instance of MockRepositoryUser. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockRepositoryUser(t interface {

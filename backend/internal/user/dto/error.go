@@ -1,10 +1,11 @@
 package dto
 
 import (
-	"application/internal/user/biz"
 	"encoding/json"
 	"errors"
 	"net/http"
+
+	"application/internal/user/biz"
 )
 
 // ErrorResponse is the standard error envelope for the user API.
@@ -23,6 +24,7 @@ var errorsMap = map[error]errorInfo{
 	biz.ErrResourceInvalid:     {Message: "invalid request", Code: http.StatusBadRequest},
 	biz.ErrResourceExists:      {Message: "email already registered", Code: http.StatusConflict},
 	biz.ErrCompetitionNotFound: {Message: "competition not found", Code: http.StatusNotFound},
+	biz.ErrUserSuspended:       {Message: "user is suspended", Code: http.StatusForbidden},
 }
 
 // HandleError writes a JSON error response, mapping known sentinels to codes.

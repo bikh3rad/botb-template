@@ -1,14 +1,15 @@
 package repo
 
 import (
-	"application/internal/datasource"
-	"application/internal/user/biz"
-	"application/internal/user/entity"
 	"context"
 	"database/sql"
 	"errors"
 	"log/slog"
 	"time"
+
+	"application/internal/datasource"
+	"application/internal/user/biz"
+	"application/internal/user/entity"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
@@ -51,9 +52,33 @@ func (r *ticket) Purchase(ctx context.Context, in biz.PurchaseInput) (biz.Purcha
 
 	defer func() { _ = tx.Rollback() }()
 
+	// Suspension guard lives INSIDE the purchase transaction so a concurrent
+	// suspend cannot race a purchase past it.
+	var isActive bool
+
+	activeErr := tx.QueryRowContext(
+		ctx,
+		`SELECT is_active FROM users WHERE id = $1`, in.UserID,
+	).Scan(&isActive)
+
+	if errors.Is(activeErr, sql.ErrNoRows) {
+		return biz.PurchaseResult{}, biz.ErrResourceNotFound
+	}
+
+	if activeErr != nil {
+		logger.WarnContext(ctx, "failed to read user active flag", "error", activeErr)
+
+		return biz.PurchaseResult{}, activeErr
+	}
+
+	if !isActive {
+		return biz.PurchaseResult{}, biz.ErrUserSuspended
+	}
+
 	var pricePence int64
 
-	priceErr := tx.QueryRowContext(ctx,
+	priceErr := tx.QueryRowContext(
+		ctx,
 		`SELECT ticket_price_pence FROM competitions WHERE id = $1`, in.CompetitionID,
 	).Scan(&pricePence)
 
@@ -99,7 +124,8 @@ func insertTickets(ctx context.Context, tx *sql.Tx, in biz.PurchaseInput, at tim
 			PurchasedAt:   at,
 		}
 
-		_, err := tx.ExecContext(ctx,
+		_, err := tx.ExecContext(
+			ctx,
 			`INSERT INTO tickets (id, competition_id, user_id, purchased_at) VALUES ($1, $2, $3, $4)`,
 			t.ID, t.CompetitionID, t.UserID, at,
 		)
@@ -123,7 +149,8 @@ func bumpUserTotals(
 	quantity int,
 	totalCost int64,
 ) (entity.User, error) {
-	res, err := tx.ExecContext(ctx,
+	res, err := tx.ExecContext(
+		ctx,
 		`UPDATE users
 			SET tickets_owned = tickets_owned + $1, total_spent_pence = total_spent_pence + $2
 			WHERE id = $3`,
@@ -142,13 +169,14 @@ func bumpUserTotals(
 		return entity.User{}, biz.ErrResourceNotFound
 	}
 
-	row := tx.QueryRowContext(ctx,
-		`SELECT id, name, email, tickets_owned, total_spent_pence, created_at FROM users WHERE id = $1`,
+	row := tx.QueryRowContext(
+		ctx,
+		`SELECT id, name, email, tickets_owned, total_spent_pence, is_active, created_at FROM users WHERE id = $1`,
 		userID,
 	)
 
 	var u entity.User
-	if err := row.Scan(&u.ID, &u.Name, &u.Email, &u.TicketsOwned, &u.TotalSpentPence, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.Name, &u.Email, &u.TicketsOwned, &u.TotalSpentPence, &u.IsActive, &u.CreatedAt); err != nil {
 		return entity.User{}, err
 	}
 

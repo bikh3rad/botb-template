@@ -1,11 +1,12 @@
 package biz_test
 
 import (
+	"context"
+	"testing"
+
 	"application/internal/user/biz"
 	"application/internal/user/entity"
 	"application/internal/user/mocks"
-	"context"
-	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"

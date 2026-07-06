@@ -1,9 +1,10 @@
 package biz
 
 import (
-	"application/internal/user/entity"
 	"context"
 	"log/slog"
+
+	"application/internal/user/entity"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"

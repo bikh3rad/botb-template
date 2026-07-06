@@ -1,15 +1,16 @@
 package handler
 
 import (
-	"application/internal/service"
-	"application/internal/user/biz"
-	"application/internal/user/dto"
-	"application/pkg/middlewares"
 	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+
+	"application/internal/service"
+	"application/internal/user/biz"
+	"application/internal/user/dto"
+	"application/pkg/middlewares"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
