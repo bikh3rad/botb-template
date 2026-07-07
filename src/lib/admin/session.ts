@@ -9,7 +9,7 @@
 // cookie scoped to the gateway would not be sent by the browser on same-origin
 // admin XHRs; proxying through the frontend origin keeps every token out of JS
 // (stricter than access-in-memory) and out of localStorage entirely.
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 /** Server-side gateway base URL (internal compose address preferred). */
 export function gatewayBase(): string {
@@ -23,12 +23,26 @@ export function gatewayBase(): string {
 export const ACCESS_COOKIE = "botb_admin_access";
 export const REFRESH_COOKIE = "botb_admin_refresh";
 
+/**
+ * Whether to mark session cookies `Secure`. Tied to the REQUEST protocol, not
+ * NODE_ENV: a browser on plain http://localhost silently drops Secure cookies,
+ * which would break local login. Over https (x-forwarded-proto from a TLS
+ * proxy) it is set, so production stays secure. Set ADMIN_COOKIE_SECURE=true to
+ * force it on regardless.
+ */
+async function secureCookies(): Promise<boolean> {
+  if (process.env.ADMIN_COOKIE_SECURE === "true") return true;
+
+  const proto = (await headers()).get("x-forwarded-proto") ?? "";
+  return proto.split(",")[0].trim() === "https";
+}
+
 /** Shared cookie options. httpOnly + sameSite=lax keeps tokens out of JS. */
-function cookieOptions(maxAge: number) {
+function cookieOptions(maxAge: number, secure: boolean) {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     path: "/",
     maxAge,
   };
@@ -53,10 +67,11 @@ export interface TokenResponse {
 /** Persist a freshly issued token pair into HttpOnly cookies. */
 export async function setSessionCookies(tokens: TokenResponse): Promise<void> {
   const store = await cookies();
-  store.set(ACCESS_COOKIE, tokens.access_token, cookieOptions(tokens.expires_in));
+  const secure = await secureCookies();
+  store.set(ACCESS_COOKIE, tokens.access_token, cookieOptions(tokens.expires_in, secure));
   // Refresh cookie lives longer than the access token; 7 days matches the
   // backend default refresh TTL.
-  store.set(REFRESH_COOKIE, tokens.refresh_token, cookieOptions(60 * 60 * 24 * 7));
+  store.set(REFRESH_COOKIE, tokens.refresh_token, cookieOptions(60 * 60 * 24 * 7, secure));
 }
 
 /** Clear the session cookies (logout). */
