@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: ${POSTGRES_DB:-db}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       # Postgres 18+ stores data in a version subdir; mount the parent (see docker-library/postgres#1259).
       - postgres-data:/var/lib/postgresql
