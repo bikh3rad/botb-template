@@ -225,7 +225,11 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       # Browser (client fetches run in the USER's browser, not the compose net):
       NEXT_PUBLIC_API_BASE_URL: http://localhost:${GATEWAY_PORT:-8080}
-      NEXT_PUBLIC_MEDIA_BASE_URL: http://localhost:9000
+      # Media is served same-origin at /media and proxied to MinIO (see
+      # MEDIA_UPSTREAM_URL + next.config rewrite), so object URLs follow the
+      # server IP/host the site is opened on instead of a baked-in localhost.
+      NEXT_PUBLIC_MEDIA_BASE_URL: /media
+      MEDIA_UPSTREAM_URL: http://minio:9000
       # Server-side (SSR) fetches run INSIDE the compose network. The frontend
       # no longer holds any JWT secret: the winners feed reads a PUBLIC
       # endpoint, and the admin panel authenticates via the adminauth service

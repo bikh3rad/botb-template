@@ -62,9 +62,9 @@ export const apiUpload = <T>(path: string, form: FormData) =>
 
 /** Browser-facing MinIO base for rendering stored media directly. */
 export function mediaBaseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_MEDIA_BASE_URL || "http://localhost:9000"
-  );
+  // Same-origin "/media" (proxied to MinIO by the Next rewrite) so admin
+  // thumbnails resolve against whatever host/IP the panel is opened on.
+  return process.env.NEXT_PUBLIC_MEDIA_BASE_URL || "/media";
 }
 
 /** Build a public object URL from a media ref. */

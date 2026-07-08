@@ -101,9 +101,15 @@ const REVALIDATE_SECONDS = 30;
 // Media URL helpers.
 // ---------------------------------------------------------------------------
 
-/** Browser-facing MinIO base URL (public-read bucket). */
+/**
+ * Browser-facing media base. Defaults to the same-origin "/media" path, which
+ * the Next rewrite proxies to MinIO — so object URLs follow whatever server
+ * IP/host the site is served from (no baked-in localhost). Set
+ * NEXT_PUBLIC_MEDIA_BASE_URL to a full URL only to point the browser straight
+ * at a public MinIO/CDN host instead.
+ */
 export function mediaBase(): string {
-  return process.env.NEXT_PUBLIC_MEDIA_BASE_URL || "http://localhost:9000";
+  return process.env.NEXT_PUBLIC_MEDIA_BASE_URL || "/media";
 }
 
 /**
